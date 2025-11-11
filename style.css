@@ -1,0 +1,54 @@
+.title {
+    color: #fff;
+    font-size: 3rem;
+    font-family: 'Times New Roman', Times, serif;
+    text-align: center;
+    margin: 20px 0;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #101010;
+    font-family: Arial, sans-serif;
+}
+
+.dmodel-view-box {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #101010;
+    color: #fff;
+}
+
+.model-3d {
+    max-width: 500px;
+}
+
+.model {
+    min-width: 500px;
+    height: 500px;
+}
+
+.product-text-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 500px;
+    gap: 40px;
+}
+
+@media screen and (min-width: 769px) {
+    .dmodel-view-box {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 40px;
+    }
+    
+    .product-text-box {
+        align-items: flex-start;
+    }
+}
