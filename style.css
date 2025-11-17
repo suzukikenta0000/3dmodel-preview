@@ -15,12 +15,19 @@ body {
 
 .dmodel-view-box {
     max-width: 1280px;
+    width: 90%;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     align-items: center;
     background-color: #101010;
     color: #fff;
+    padding: 32px 0;
+}
+
+.border-top {
+    border-top: 1px solid #909090;
+    max-width: 1200px;
 }
 
 .model-3d {
