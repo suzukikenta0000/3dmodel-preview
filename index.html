@@ -7,59 +7,40 @@
     <title>Sample-3Dmodel</title>
     <link rel="stylesheet" href="style.css">
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-    <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const viewer = document.getElementById('myViewer');
-    if (!viewer) return;
-
-    const degreesPerSecond = 30; // ここが「回転速度」
-
-    let lastTime = null;
-    let currentDeg = 0;
-
-    function animate(time) {
-      if (lastTime == null) {
-        lastTime = time;
-      }
-      const delta = (time - lastTime) / 1000;
-      lastTime = time;
-
-      currentDeg += degreesPerSecond * delta;
-      if (currentDeg >= 360) currentDeg -= 360;
-
-      viewer.cameraOrbit = `${currentDeg}deg 75deg 10m`;
-
-      requestAnimationFrame(animate);
-    }
-
-    viewer.addEventListener('load', () => {
-      requestAnimationFrame(animate);
-    });
-  });
 </script>
 
 </head>
 
 <body>
     <h1 class="title">3D model</h1>
+    
+    <!--
+        ========== メモ ===========
+        こちらは <model-viewer> のサンプルです。
+        ==========================
+    <model-viewer 
+        class="model"  
+        src="shimadasama/3dmodel/shimada-light2.glb"  // 3Dモデルのパスを指定
+        camera-controls  // ユーザー操作を有効化
+        auto-rotate  // 自動回転を有効化
+        interaction-prompt="none"  // インタラクションプロンプト(指マーク)を非表示
+        rotation-per-second="30deg"  // 回転速度を指定
+        disable-pan // パン操作を無効化
+        environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">  // 環境マップと露出を指定(ライト効果)
+    </model-viewer>
+    -->
 
     <section class="dmodel-view-box">
         <div class="model-3d">
-            <model-viewer class="model" src="shimadasama/3dmodel/shimada-light1.glb" camera-controls auto-rotate
-                disable-pan environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">
-            </model-viewer>
-        </div>
-        <div class="product-img-box">
-            <img src="shimadasama/3dmodel/banglelightk.webp" alt="img" class="product-img">
-        </div>
-    </section>
-    
-    <section class="dmodel-view-box border-top">
-        <div class="model-3d">
-            <model-viewer class="model" src="shimadasama/3dmodel/shimada-light2.glb" camera-controls
+            <model-viewer 
+                class="model" 
+                src="shimadasama/3dmodel/shimada-light2.glb" 
+                camera-controls
                 auto-rotate
+                interaction-prompt="none"
                 rotation-per-second="30deg"
-                disable-pan environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">
+                disable-pan
+                environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">
             </model-viewer>
         </div>
         <div class="product-img-box">
@@ -69,11 +50,16 @@
 
     <section class="dmodel-view-box border-top">
         <div class="model-3d">
-            <model-viewer class="model" src="shimadasama/3dmodel/shimada-light3.glb" camera-controls
+            <model-viewer 
+                class="model"
+                src="shimadasama/3dmodel/shimada-light3.glb"
+                camera-controls
                 auto-rotate
+                interaction-prompt="none"
                 rotation-per-second="30deg"
                 camera-orbit="0deg 75deg 10m"
-                disable-pan environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">
+                disable-pan
+                environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">
             </model-viewer>
         </div>
         <div class="product-img-box">
