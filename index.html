@@ -7,12 +7,12 @@
     <title>Sample-3Dmodel</title>
     <link rel="stylesheet" href="style.css">
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-</script>
 
 </head>
 
 <body>
     <h1 class="title">3D model</h1>
+    <a href="jstest.html">three.js-test</a>
     
     <!--
         ========== メモ ===========
@@ -30,6 +30,8 @@
     </model-viewer>
     -->
 
+    <canvas id="three-canvas"></canvas>
+    
     <section class="border-top">
         <dl class="dl_flex">
             <div class="dl_flex-item">
@@ -212,6 +214,7 @@
         </div>
     </section>
     
+    <script type="module" src="js/three.js"></script>
 </body>
 
 </html>
