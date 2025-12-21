@@ -2,34 +2,61 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.127.0/build/three.m
 import { GLTFLoader } from 'https://unpkg.com/three@0.127.0/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.127.0/examples/jsm/controls/OrbitControls.js';
 
+// サイズの指定
 const width = 500;
 const height = 500;
 
-const canvas = document.getElementById('three-canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const canvas = document.getElementById('three-canvas'); // index.html 側で用意した <canvas> 要素を取得
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); // レンダラーを作成 
 renderer.setSize(width, height);
 renderer.setPixelRatio(window.devicePixelRatio);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 3;
 
-// 背景色を黒に設定
+// 背景色を黒に設定とシーン作成
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x101010);
 
 // カメラ設定
-const camera = new THREE.PerspectiveCamera(30, width / height, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(30, width / height, 0.1, 1000); // fov, aspect, near, far
 camera.position.set(0, 0, 10);
+	// fov：画角（視野角）。小さいほど「ズームしてるように」見える
+	// aspect：縦横比（width/height）
+	// near / far：描画する奥行き範囲（カメラからの距離）
+	// near より近いものは描画されない
+	// far より遠いものは描画されない
 
 // ライトの追加
-const light = new THREE.DirectionalLight(0xffffff, 20);
+const light = new THREE.DirectionalLight(0xffffff, 40);
 light.position.set(0, 10, 0);
 scene.add(light);
 
-const light2 = new THREE.DirectionalLight(0xffffff, 10);
+const light2 = new THREE.SpotLight(0xffffff, 10);
 light2.position.set(3, 0, 8);
 scene.add(light2);
 
-const light3 = new THREE.DirectionalLight(0xffffff, 10);
-light3.position.set(-3, 0, 9);
+const light3 = new THREE.SpotLight(0xffffff, 100);
+light3.position.set(0, 0, 0);
+light3.target.position.set(8, 3, 0);
 scene.add(light3);
+scene.add(light3.target);
+
+// ====== ズーム中だけ暗い箇所（zoomTarget）を照らす補助ライト ======
+// 通常時は intensity=0 にしておき、ズーム中だけ点灯させます。
+const zoomSpot = new THREE.SpotLight(0xffffff, 0, 40, Math.PI / 6, 0.45, 1); // color, intensity, distance, angle, penumbra, decay
+	// intensity：明るさ（最初は 0 → 普段は消灯）
+	// distance：届く距離（40 まで）
+	// angle：開き角（Math.PI/6 = 約30°）
+	// penumbra：縁のボケ具合（0〜1）
+	// decay：距離減衰（距離で暗くなる度合い）
+zoomSpot.castShadow = false;
+scene.add(zoomSpot);
+scene.add(zoomSpot.target);
+
+// 必要なら全体の暗さを少し底上げ（不要なら 0 のままでOK）
+const fillAmbient = new THREE.AmbientLight(0xffffff, 2.0);
+scene.add(fillAmbient);
 
 // モデルの読み込み
 const loader = new GLTFLoader();
@@ -39,11 +66,15 @@ let model = null;
 let defaultFrontQuat = null;
 
 loader.load(
-  'shimadasama/3dmodel/shimada-EXbold-test.glb',
+  'shimadasama/3dmodel/shimada-bold-test.glb',
   (gltf) => {
     model = gltf.scene;
     model.scale.set(1, 1, 1);
     model.position.set(0, 0, 0);
+
+    // デバッグ：端が思った方向じゃない時は、BBox を見て ZOOM_END_AXIS / ZOOM_END_SIDE を変える
+    // const box = new THREE.Box3().setFromObject(model);
+    // console.log('bbox min', box.min, 'bbox max', box.max);
 
     // ここで「正面（デフォ）」になるように必要なら補正してから保存
     // 例：model.rotation.y = Math.PI; など（モデル次第）
@@ -87,9 +118,75 @@ const NORMAL_FOV = 30;
 const ZOOM_FOV = 20;   // 小さいほどズームインっぽい
 
 // 「特定部位」へズームしたい時にここを更新する
+// zoomTarget = ズーム時に「どこを見るか（注視点）」
 const zoomTarget = new THREE.Vector3(0, 0, 0);
-const zoomOffset = new THREE.Vector3(0, 0, 4); // 正面(+Z)から寄る距離
+
+// ====== 端ズーム設定（ここを変えると狙う端が変わる） ======
+// axis: 'x' | 'y' | 'z' | 'auto'（auto は一番長い軸の端）
+// side: 'min' | 'max'（どっちの端を見るか）
+const ZOOM_END_AXIS = 'x';
+const ZOOM_END_SIDE = 'max';
+
+// ====== ズーム位置の微調整（左右・上下・手前/奥） ======
+// +x: 右へ / -x: 左へ
+// +y: 上へ / -y: 下へ
+// +z: カメラ側へ / -z: 奥へ（※cameraが(0,0,10)なので基本はこう）
+const ZOOM_TWEAK = new THREE.Vector3(-0.7, 0.0, 0.0);
+
+// 正面(+Z)から寄る距離（小さいほど近い）
+const zoomOffset = new THREE.Vector3(0, 0, 0.5);
 const tmpZoomPos = new THREE.Vector3();
+
+function getLongestAxis(box) {
+  const size = box.getSize(new THREE.Vector3());
+  if (size.x >= size.y && size.x >= size.z) return 'x';
+  if (size.y >= size.x && size.y >= size.z) return 'y';
+  return 'z';
+}
+
+// モデルのBBox（外接箱）から「端の位置」を計算して zoomTarget に入れる
+// 端だけを指定して、残り2軸は中心に合わせる（"端を正面から" を作りやすい）
+function setZoomTargetToModelEnd(modelObj, outTarget, axis = 'x', side = 'max') {
+  const box = new THREE.Box3().setFromObject(modelObj);
+  const center = box.getCenter(new THREE.Vector3());
+  const useAxis = axis === 'auto' ? getLongestAxis(box) : axis;
+
+  if (useAxis === 'x') {
+    outTarget.set(side === 'min' ? box.min.x : box.max.x, center.y, center.z);
+  } else if (useAxis === 'y') {
+    outTarget.set(center.x, side === 'min' ? box.min.y : box.max.y, center.z);
+  } else {
+    outTarget.set(center.x, center.y, side === 'min' ? box.min.z : box.max.z);
+  }
+}
+
+// 毎回ズーム位置が微妙にズレる原因：
+// いまは「回転中の姿勢」で Box3 を計算しているため、AABB(外接箱)が回転で変形し、端座標も毎回変わる。
+// そこで、defaultFrontQuat（正面姿勢）に一時的に戻してから Box3 を計算して、常に同じ位置を得る。
+function setZoomTargetToModelEndStable(modelObj, outTarget, axis = 'x', side = 'max') {
+  if (!defaultFrontQuat) {
+    // 念のため（ロード直後など）
+    setZoomTargetToModelEnd(modelObj, outTarget, axis, side);
+    outTarget.add(ZOOM_TWEAK);
+    return;
+  }
+
+  const prevQuat = modelObj.quaternion.clone();
+
+  // 一時的に「正面（デフォ）」へ
+  modelObj.quaternion.copy(defaultFrontQuat);
+  modelObj.updateMatrixWorld(true);
+
+  // 正面姿勢で端座標を計算
+  setZoomTargetToModelEnd(modelObj, outTarget, axis, side);
+
+  // 微調整
+  outTarget.add(ZOOM_TWEAK);
+
+  // 元の姿勢へ戻す（ズームインの補間は今まで通り）
+  modelObj.quaternion.copy(prevQuat);
+  modelObj.updateMatrixWorld(true);
+}
 
 // 戻すためのスナップショット
 let savedModelQuat = null;
@@ -169,6 +266,8 @@ function animate() {
   // ====== 通常：モデル多方向回転（距離はカメラを動かさないので固定） ======
   if (mode === MODE_ROTATE) {
     if (autoRotate && !userInteracting) {
+      zoomSpot.intensity = 0;
+      fillAmbient.intensity = 0.0;
       model.rotation.x += 0.01;
       model.rotation.y += 0.02;
       model.rotation.z += 0.02;
@@ -183,7 +282,7 @@ function animate() {
 
         // ズームターゲット（特定部位）
         // いまはモデル全体の中心にズームする（原点ズレ対策）
-        new THREE.Box3().setFromObject(model).getCenter(zoomTarget);
+        setZoomTargetToModelEndStable(model, zoomTarget, ZOOM_END_AXIS, ZOOM_END_SIDE);
 
         // ズーム補間の開始値を固定
         zoomFromQuat = model.quaternion.clone();
@@ -221,6 +320,12 @@ function animate() {
     // 注視点：zoomTarget へ
     controls.target.lerpVectors(zoomFromTarget, zoomTarget, t);
 
+    // ズーム中は zoomTarget（開口部など）をピンポイントで照らす
+    zoomSpot.position.copy(camera.position);            // カメラ位置から照らす（見たい場所が明るくなる）
+    zoomSpot.target.position.copy(zoomTarget);          // 照らす先
+    zoomSpot.intensity = 30;                            // 明るさ（10〜80くらいで調整）
+    fillAmbient.intensity = 0.15;                       // 全体の底上げ（不要なら 0 ）
+
     if (tRaw === 1) {
       mode = MODE_HOLD;
       modeStartTime = now;
@@ -231,6 +336,11 @@ function animate() {
   else if (mode === MODE_HOLD) {
     // ターゲットは固定
     controls.target.copy(zoomTarget);
+
+    zoomSpot.position.copy(camera.position);
+    zoomSpot.target.position.copy(zoomTarget);
+    zoomSpot.intensity = 30;
+    fillAmbient.intensity = 0.15;
 
     if (elapsed >= ZOOM_HOLD_TIME) {
       // ズームアウト補間の開始値を固定
@@ -263,7 +373,15 @@ function animate() {
     // ターゲット：元へ
     controls.target.lerpVectors(zoomFromTarget, savedTarget, t);
 
+    // ズームアウト中は補助ライトを徐々にOFF
+    zoomSpot.position.copy(camera.position);
+    zoomSpot.target.position.copy(zoomTarget);
+    zoomSpot.intensity = 30 * (1 - t);
+    fillAmbient.intensity = 0.15 * (1 - t);
+
     if (tRaw === 1) {
+      zoomSpot.intensity = 0;
+      fillAmbient.intensity = 0.0;
       // 演出終了：操作を戻して自動回転を再開
       controls.enabled = true;
       autoRotate = true;
