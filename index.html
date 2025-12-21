@@ -11,9 +11,7 @@
 </head>
 
 <body>
-    <h1 class="title">3D model</h1>
-    <a href="jstest.html">three.js-test</a>
-    
+    <h1 class="title">3D model</h1>    
     <!--
         ========== メモ ===========
         こちらは <model-viewer> のサンプルです。
@@ -46,14 +44,52 @@
         <div class="dmodel-view-box">
             <div class="model-3d">
                 <model-viewer 
-                    class="model" 
+                    class="model"
+                    id="Interpolation" 
+                    src="shimadasama/3dmodel/shimada-EXbold-test.glb" 
+                    camera-controls
+                    auto-rotate
+                    interaction-prompt="none"
+                    rotation-per-second="30deg"
+                    disable-pan
+                    environment-image="shimadasama/3dmodel/Untitled.hdr"
+                    exposure="3.5"
+
+                    interpolation-decay="200"
+                    camera-target="0m 0m 0m"
+                    >
+                </model-viewer>
+            </div>
+            <div class="product-img-box">
+                <img src="shimadasama/3dmodel/banglelightk.webp" alt="img" class="product-img">
+            </div>
+        </div>
+    </section>
+
+    <section class="border-top">
+        <dl class="dl_flex">
+            <div class="dl_flex-item">
+                <dt>type：</dt>
+                <dd>bangle / light</dd>
+            </div>
+            <div class="dl_flex-item">
+                <dt>color：</dt>
+                <dd>yellow glod</dd>
+            </div>
+        </dl>
+        <div class="dmodel-view-box">
+            <div class="model-3d">
+                <model-viewer 
+                    class="model"
                     src="shimadasama/complate/bangleLight-yellowGold.glb" 
                     camera-controls
                     auto-rotate
                     interaction-prompt="none"
                     rotation-per-second="30deg"
                     disable-pan
-                    environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">
+                    environment-image="shimadasama/3dmodel/Untitled.hdr"
+                    exposure="3.5"
+                    >
                 </model-viewer>
             </div>
             <div class="product-img-box">
@@ -143,7 +179,7 @@
                     rotation-per-second="30deg"
                     camera-orbit="0deg 75deg 10m"
                     disable-pan
-                    environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">
+                    environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="3.5">
                 </model-viewer>
             </div>
             <div class="product-img-box">

@@ -11,15 +11,15 @@ renderer.setPixelRatio(window.devicePixelRatio);
 
 // 背景色を黒に設定
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
+scene.background = new THREE.Color(0x101010);
 
 // カメラ設定
 const camera = new THREE.PerspectiveCamera(30, width / height, 0.1, 1000);
-camera.position.set(0, 1, -1);
+camera.position.set(0, 0, 7);
 // camera.lookAt(0, 0, 0);
 
 // // ライトの追加
-const light = new THREE.DirectionalLight(0xffffff, 2);
+const light = new THREE.DirectionalLight(0xffffff, 20);
 light.position.set(1, 1, 1);
 scene.add(light);
 
@@ -28,7 +28,7 @@ const loader = new GLTFLoader();
 let model = null;
 
 loader.load(
-  'shimadasama/3dmodel/sample-model.glb', 
+  'shimadasama/3dmodel/shimada-EXbold-test.glb', 
     
   (gltf) => {
   model = gltf.scene;
@@ -51,9 +51,40 @@ function animate() {
   requestAnimationFrame(animate);
 
   if (model) {
-    model.rotation.y += 0.01;
+    model.rotation.x += 0.01;
+    model.rotation.y += 0.02;
   }
 }
 
 animate();
 
+// interpolation
+const interpolationSelect = document.querySelector('#Interpolation');
+
+const orbitCycle = [
+  '45deg 75deg 1m',
+  '135deg 110deg 3m',
+  interpolationSelect.cameraOrbit
+];
+
+let timer = null;
+let isAuto = true;
+
+const startAuto = () => {
+  if (timer) return;
+  timer = setInterval(() => {
+    if (!isAuto) return;
+    const i = orbitCycle.indexOf(interpolationSelect.cameraOrbit);
+    interpolationSelect.cameraOrbit = orbitCycle[(i + 1 + orbitCycle.length) % orbitCycle.length];
+  }, 3000);
+};
+
+const stopAuto = () => {
+  isAuto = false;
+  }
+
+  interpolationSelect.addEventListener('camera-change', (e) => {
+    if (e.detail?.source === 'user-interaction') stopAuto();
+  });
+
+  startAuto();
