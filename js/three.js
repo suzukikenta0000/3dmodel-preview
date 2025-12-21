@@ -1,5 +1,6 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.127.0/build/three.module.js';
 import { GLTFLoader } from 'https://unpkg.com/three@0.127.0/examples/jsm/loaders/GLTFLoader.js';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.127.0/examples/jsm/controls/OrbitControls.js';
 
 const width = 500;
 const height = 500;
@@ -15,13 +16,21 @@ scene.background = new THREE.Color(0x101010);
 
 // カメラ設定
 const camera = new THREE.PerspectiveCamera(30, width / height, 0.1, 1000);
-camera.position.set(0, 0, 7);
+camera.position.set(0, 0, 10);
 // camera.lookAt(0, 0, 0);
 
 // // ライトの追加
 const light = new THREE.DirectionalLight(0xffffff, 20);
-light.position.set(1, 1, 1);
+light.position.set(0, 10, 0);
 scene.add(light);
+
+const light2 = new THREE.DirectionalLight(0xffffff, 10);
+light2.position.set(3, 0, 8);
+scene.add(light2);
+
+const light3 = new THREE.DirectionalLight(0xffffff, 10);
+light3.position.set(-3, 0, 9);
+scene.add(light3);
 
 // モデルの読み込み
 const loader = new GLTFLoader();
@@ -46,13 +55,42 @@ loader.load(
   }
 );
 
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; // 慣性を有効にする(操作を滑らかにするやつ)
+controls.dampingFactor = 0.08; // 慣性の減衰係数
+let autoRotate = true;
+const RESUME_DELAY = 2000; // 2秒
+let resumeTimerId = null;
+
+controls.addEventListener('start', () => {
+  autoRotate = false;
+
+  if (resumeTimerId !== null) {
+    clearTimeout(resumeTimerId);
+    resumeTimerId = null;
+  }
+});
+
+controls.addEventListener('end', () => {
+
+  if (resumeTimerId !== null) clearTimeout(resumeTimerId);
+
+  resumeTimerId = setTimeout(() => {
+    autoRotate = true;
+    resumeTimerId = null;
+  }, RESUME_DELAY);
+});
+
 function animate() {
+  controls.update();
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 
-  if (model) {
+  // モデルの回転
+  if (autoRotate && model) {
     model.rotation.x += 0.01;
     model.rotation.y += 0.02;
+    model.rotation.z += 0.02;
   }
 }
 
