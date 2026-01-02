@@ -12,7 +12,7 @@ renderer.setSize(width, height);
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 3;
+renderer.toneMappingExposure = 1.5;
 
 // 背景色を黒に設定とシーン作成
 const scene = new THREE.Scene();
@@ -65,13 +65,13 @@ let model = null;
 // 「正面（デフォ）」として戻したい姿勢（ロード完了時に保存）
 let defaultFrontQuat = null;
 
-loader.load(
+loader.load( //url, onLoad, onProgress, onError
   'shimadasama/3dmodel/shimada-bold-test.glb',
   (gltf) => {
-    model = gltf.scene;
-    model.scale.set(1, 1, 1);
-    model.position.set(0, 0, 0);
-
+    model = gltf.scene; // gltf.sceneはモデル一式の情報が入っているらしい console.log(gltf);で確認できる メッシュとか大きさとかマテリアルとか
+    model.scale.set(1, 1, 1); // モデルの大きさ調整 0.5なら小さくなる（半分）
+    model.position.set(0, 0, 0); // モデルの位置調整 (x,y,z) 0,0,0なら中心
+    
     // デバッグ：端が思った方向じゃない時は、BBox を見て ZOOM_END_AXIS / ZOOM_END_SIDE を変える
     // const box = new THREE.Box3().setFromObject(model);
     // console.log('bbox min', box.min, 'bbox max', box.max);
@@ -88,6 +88,7 @@ loader.load(
   (error) => {
     console.error('error発生', error);
   }
+  // event / error は省略可能 undefinedをつけると省略したことになる
 );
 
 const controls = new OrbitControls(camera, canvas);
@@ -119,7 +120,7 @@ const ZOOM_FOV = 20;   // 小さいほどズームインっぽい
 
 // 「特定部位」へズームしたい時にここを更新する
 // zoomTarget = ズーム時に「どこを見るか（注視点）」
-const zoomTarget = new THREE.Vector3(0, 0, 0);
+const zoomTarget = new THREE.Vector3(0, 0, -1);
 
 // ====== 端ズーム設定（ここを変えると狙う端が変わる） ======
 // axis: 'x' | 'y' | 'z' | 'auto'（auto は一番長い軸の端）
@@ -207,6 +208,7 @@ function easeInOut(t) {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 }
 
+// ユーザー操作開始・終了イベント
 controls.addEventListener('start', () => {
   userInteracting = true;
   autoRotate = false;
