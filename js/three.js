@@ -65,6 +65,18 @@ let model = null;
 // 「正面（デフォ）」として戻したい姿勢（ロード完了時に保存）
 let defaultFrontQuat = null;
 
+// ====== 回転同期ズーム用：ズームしたい点をローカル座標で保持 ======
+let zoomTargetLocal = null; // THREE.Vector3 (model local)
+
+// 1周にかける秒数（例：10秒で1周）
+const ROTATE_CYCLE_SECONDS = 10;
+
+// 「ズーム点がカメラ正面に来た」判定の厳しさ（1に近いほど厳しい）
+const FRONT_DOT_THRESHOLD = 0.985;
+
+// 正面待ちの上限（これを超えたら強制ズーム開始）
+const FRONT_WAIT_MAX_MS = 10000;
+
 loader.load( //url, onLoad, onProgress, onError
   'shimadasama/3dmodel/shimada-bold-test.glb',
   (gltf) => {
@@ -79,6 +91,12 @@ loader.load( //url, onLoad, onProgress, onError
     // ここで「正面（デフォ）」になるように必要なら補正してから保存
     // 例：model.rotation.y = Math.PI; など（モデル次第）
     defaultFrontQuat = model.quaternion.clone();
+
+    // ====== ズームしたい点を「ローカル座標」で一度だけ決めて保持 ======
+    // まず正面姿勢で安定して端点(world)を計算 → worldToLocal して保存
+    setZoomTargetToModelEndStable(model, zoomTarget, ZOOM_END_AXIS, ZOOM_END_SIDE);
+    zoomTargetLocal = zoomTarget.clone();
+    model.worldToLocal(zoomTargetLocal);
 
     scene.add(model);
   },
@@ -109,7 +127,9 @@ let mode = MODE_ROTATE;
 let modeStartTime = performance.now();
 
 // 通常回転→ズームのタイミング
-const ROTATE_INTERVAL = 5000; // 5s
+// const ROTATE_INTERVAL = 5000; // 5s  (削除)
+
+// const ZOOM_IN_TIME = 1000;    // 1s
 const ZOOM_IN_TIME = 1000;    // 1s
 const ZOOM_HOLD_TIME = 2000;  // 2s
 const ZOOM_OUT_TIME = 1000;   // 1s
@@ -132,11 +152,16 @@ const ZOOM_END_SIDE = 'max';
 // +x: 右へ / -x: 左へ
 // +y: 上へ / -y: 下へ
 // +z: カメラ側へ / -z: 奥へ（※cameraが(0,0,10)なので基本はこう）
-const ZOOM_TWEAK = new THREE.Vector3(-0.7, 0.0, 0.0);
+const ZOOM_TWEAK = new THREE.Vector3(-1.1, 0.0, 0.0);
 
-// 正面(+Z)から寄る距離（小さいほど近い）
-const zoomOffset = new THREE.Vector3(0, 0, 0.5);
+// どれくらい寄るか（小さいほど近い）。カメラ方向に沿って寄せます。
+const ZOOM_DISTANCE = 0.5;
+
 const tmpZoomPos = new THREE.Vector3();
+const tmpZoomTargetWorld = new THREE.Vector3();
+const tmpCenterWorld = new THREE.Vector3();
+const tmpCamDir = new THREE.Vector3();
+const tmpPointDir = new THREE.Vector3();
 
 function getLongestAxis(box) {
   const size = box.getSize(new THREE.Vector3());
@@ -189,14 +214,13 @@ function setZoomTargetToModelEndStable(modelObj, outTarget, axis = 'x', side = '
   modelObj.updateMatrixWorld(true);
 }
 
-// 戻すためのスナップショット
-let savedModelQuat = null;
+// 戻すためのスナップショット（カメラのみ戻す）
 let savedCamPos = null;
 let savedCamFov = null;
 let savedTarget = null;
 
 // ズーム補間の「開始値」を固定するための変数
-let zoomFromQuat = null;
+// let zoomFromQuat = null;  (削除)
 let zoomFromPos = null;
 let zoomFromFov = null;
 let zoomFromTarget = null;
@@ -208,14 +232,62 @@ function easeInOut(t) {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 }
 
+function getZoomTargetWorld(out) {
+  // ローカル点がまだ無い場合は従来の安定計算にフォールバック
+  if (!model || !zoomTargetLocal) {
+    setZoomTargetToModelEndStable(model, out, ZOOM_END_AXIS, ZOOM_END_SIDE);
+    return out;
+  }
+  out.copy(zoomTargetLocal);
+  model.localToWorld(out); // local → world
+  return out;
+}
+
+function isZoomPointFacingCamera() {
+  if (!model) return false;
+
+  // モデル中心（world）
+  const box = new THREE.Box3().setFromObject(model);
+  box.getCenter(tmpCenterWorld);
+
+  // ズーム点（world）
+  getZoomTargetWorld(tmpZoomTargetWorld);
+
+  // 中心→カメラ
+  tmpCamDir.copy(camera.position).sub(tmpCenterWorld).normalize();
+
+  // 中心→ズーム点
+  tmpPointDir.copy(tmpZoomTargetWorld).sub(tmpCenterWorld).normalize();
+
+  // dot が 1 に近いほど同方向（=ズーム点がカメラ側）
+  const d = tmpCamDir.dot(tmpPointDir);
+  return d >= FRONT_DOT_THRESHOLD;
+}
+
+const FRONT_QUAT_DOT_THRESHOLD = 0.99;
+let prevFrontQuatDot = 0;
+
+function isModelFacingDefaultFront() {
+  if (!model || !defaultFrontQuat) return false;
+
+  const d = Math.abs(model.quaternion.dot(defaultFrontQuat));
+
+  // 閾値を「下→上」に跨いだ瞬間だけ true（1回だけ発火）
+  const crossed =
+    (prevFrontQuatDot < FRONT_QUAT_DOT_THRESHOLD) &&
+    (d >= FRONT_QUAT_DOT_THRESHOLD);
+
+  prevFrontQuatDot = d;
+  return crossed;
+}
+
 // ユーザー操作開始・終了イベント
 controls.addEventListener('start', () => {
   userInteracting = true;
   autoRotate = false;
 
   // 演出中なら中断して、ズーム前状態へ即復帰（ユーザー操作と競合させない）
-  if (mode !== MODE_ROTATE && model && savedModelQuat && savedCamPos && savedTarget) {
-    model.quaternion.copy(savedModelQuat);
+  if (mode !== MODE_ROTATE && model && savedCamPos && savedTarget) {
     camera.position.copy(savedCamPos);
     camera.fov = savedCamFov ?? NORMAL_FOV;
     camera.updateProjectionMatrix();
@@ -249,10 +321,25 @@ controls.addEventListener('end', () => {
   }, RESUME_DELAY);
 });
 
+let prevNow = performance.now();
+
+// 1周=ROTATE_CYCLE_SECONDS を目標にした回転速度（rad/sec）
+const ROTATE_Y_RAD_PER_SEC = (Math.PI * 2) / ROTATE_CYCLE_SECONDS;
+
+// 軸ごとの回転比率（見た目調整用）
+const ROTATE_X_RATE = 1.0;
+const ROTATE_Y_RATE = 2.0;
+const ROTATE_Z_RATE = 2.0;
+
+// ズーム中は回転をどれくらい遅くするか
+const ZOOM_ROTATE_MULTIPLIER = 0.2;
+
 function animate() {
   requestAnimationFrame(animate);
 
   const now = performance.now();
+  const dt = Math.min((now - prevNow) / 1000, 0.05);
+  prevNow = now;
 
   // enableDamping を効かせるため、毎フレーム update は呼ぶ
   controls.update();
@@ -270,24 +357,28 @@ function animate() {
     if (autoRotate && !userInteracting) {
       zoomSpot.intensity = 0;
       fillAmbient.intensity = 0.0;
-      model.rotation.x += 0.01;
-      model.rotation.y += 0.02;
-      model.rotation.z += 0.02;
 
-      // 5秒経過したらズーム開始
-      if (elapsed >= ROTATE_INTERVAL) {
-        // 戻すために「ズーム前」の状態を保存
-        savedModelQuat = model.quaternion.clone();
+      // ====== 通常回転（dtベース・1周=ROTATE_CYCLE_SECONDS） ======
+      const base = ROTATE_Y_RAD_PER_SEC * dt;
+      model.rotation.x += base * ROTATE_X_RATE;
+      model.rotation.y += base * ROTATE_Y_RATE;
+      model.rotation.z += base * ROTATE_Z_RATE;
+
+      // ====== ズーム開始条件 ======
+      // 1) ズーム点がカメラ正面に来たら開始
+      // 2) 最大 FRONT_WAIT_MAX_MS を超えたら強制開始（保険）
+      const shouldStartZoom = isModelFacingDefaultFront();
+
+      if (shouldStartZoom) {
+        // 戻すために「ズーム前」の状態を保存（カメラのみ）
         savedCamPos = camera.position.clone();
         savedCamFov = camera.fov;
         savedTarget = controls.target.clone();
 
-        // ズームターゲット（特定部位）
-        // いまはモデル全体の中心にズームする（原点ズレ対策）
-        setZoomTargetToModelEndStable(model, zoomTarget, ZOOM_END_AXIS, ZOOM_END_SIDE);
+        // ズーム点（world）を開始時点でも一度取得
+        getZoomTargetWorld(zoomTarget);
 
-        // ズーム補間の開始値を固定
-        zoomFromQuat = model.quaternion.clone();
+        // ズーム補間の開始値を固定（カメラのみ）
         zoomFromPos = camera.position.clone();
         zoomFromFov = camera.fov;
         zoomFromTarget = controls.target.clone();
@@ -295,7 +386,7 @@ function animate() {
         // 演出中はユーザー操作を無効化（誤操作防止）
         controls.enabled = false;
 
-        autoRotate = false; // 回転停止
+        // 回転は止めない（ズーム中は減速して継続）
         mode = MODE_ZOOM_IN;
         modeStartTime = now;
       }
@@ -307,12 +398,19 @@ function animate() {
     const tRaw = Math.min(elapsed / ZOOM_IN_TIME, 1);
     const t = easeInOut(tRaw);
 
-    // モデル姿勢：正面（デフォ）へ
-    tmpQuat.slerpQuaternions(zoomFromQuat, defaultFrontQuat, t);
-    model.quaternion.copy(tmpQuat);
+    // ====== ズーム中は回転を止めず「減速」させる ======
+    const base = ROTATE_Y_RAD_PER_SEC * dt * ZOOM_ROTATE_MULTIPLIER;
+    model.rotation.x += base * ROTATE_X_RATE;
+    model.rotation.y += base * ROTATE_Y_RATE;
+    model.rotation.z += base * ROTATE_Z_RATE;
 
-    // カメラ：正面(+Z)から zoomTarget を見る位置へ
-    tmpZoomPos.copy(zoomTarget).add(zoomOffset);
+    // ====== ズーム点（world）は回転に合わせて毎フレーム更新 ======
+    getZoomTargetWorld(zoomTarget);
+
+    // ====== カメラ：カメラ方向に沿って zoomTarget へ近づける ======
+    tmpCamDir.copy(zoomFromPos).sub(zoomTarget).normalize();
+    tmpZoomPos.copy(zoomTarget).add(tmpCamDir.multiplyScalar(ZOOM_DISTANCE));
+
     camera.position.lerpVectors(zoomFromPos, tmpZoomPos, t);
 
     // FOVでも少し寄せる（不要ならこの2行を消してOK）
@@ -336,17 +434,19 @@ function animate() {
 
   // ====== ズーム保持：2秒キープ ======
   else if (mode === MODE_HOLD) {
-    // ターゲットは固定
+    // 回転に合わせてズーム点を追従（固定しない）
+    getZoomTargetWorld(zoomTarget);
     controls.target.copy(zoomTarget);
 
-    zoomSpot.position.copy(camera.position);
-    zoomSpot.target.position.copy(zoomTarget);
-    zoomSpot.intensity = 30;
-    fillAmbient.intensity = 0.15;
+    // ズーム中は回転を止めず「減速」させる
+    const base = ROTATE_Y_RAD_PER_SEC * dt * ZOOM_ROTATE_MULTIPLIER;
+    model.rotation.x += base * ROTATE_X_RATE;
+    model.rotation.y += base * ROTATE_Y_RATE;
+    model.rotation.z += base * ROTATE_Z_RATE;
 
     if (elapsed >= ZOOM_HOLD_TIME) {
       // ズームアウト補間の開始値を固定
-      zoomFromQuat = model.quaternion.clone();
+      // zoomFromQuat = model.quaternion.clone();  (削除)
       zoomFromPos = camera.position.clone();
       zoomFromFov = camera.fov;
       zoomFromTarget = controls.target.clone();
@@ -361,9 +461,18 @@ function animate() {
     const tRaw = Math.min(elapsed / ZOOM_OUT_TIME, 1);
     const t = easeInOut(tRaw);
 
-    // モデル姿勢：ズーム前の姿勢へ戻す
-    tmpQuat.slerpQuaternions(zoomFromQuat, savedModelQuat, t);
-    model.quaternion.copy(tmpQuat);
+    // ズームアウト中も回転は減速で継続
+    const base = ROTATE_Y_RAD_PER_SEC * dt * ZOOM_ROTATE_MULTIPLIER;
+    model.rotation.x += base * ROTATE_X_RATE;
+    model.rotation.y += base * ROTATE_Y_RATE;
+    model.rotation.z += base * ROTATE_Z_RATE;
+
+    // ライト/ターゲット用にズーム点を常に更新
+    getZoomTargetWorld(zoomTarget);
+
+    // モデル姿勢：ズーム前の姿勢へ戻す  (削除)
+    // tmpQuat.slerpQuaternions(zoomFromQuat, savedModelQuat, t);
+    // model.quaternion.copy(tmpQuat);
 
     // カメラ：ズーム前の位置へ
     camera.position.lerpVectors(zoomFromPos, savedCamPos, t);
@@ -390,7 +499,7 @@ function animate() {
       userInteracting = false;
 
       mode = MODE_ROTATE;
-      modeStartTime = now; // ここからまた5秒カウント
+      modeStartTime = now; // ここから「正面待ち」を開始
     }
   }
 
