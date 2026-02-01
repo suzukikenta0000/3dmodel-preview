@@ -1,11 +1,18 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.127.0/build/three.module.js';
 import { GLTFLoader } from 'https://unpkg.com/three@0.127.0/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.127.0/examples/jsm/controls/OrbitControls.js';
+import { LightProbeHelper } from 'https://cdn.jsdelivr.net/npm/three@0.127.0/examples/jsm/helpers/LightProbeHelper.js';
 
 // サイズの指定
 const width = 500;
 const height = 500;
-
+// THREE.jsの作成手順・基礎
+// レンダラー
+// シーン
+// カメラ
+// ライト
+// モデルの作成または読み込み
+// 上記を設定（変数へセット）
 const canvas = document.getElementById('three-canvas'); // index.html 側で用意した <canvas> 要素を取得
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); // レンダラーを作成 
 renderer.setSize(width, height);
@@ -19,40 +26,50 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x101010);
 
 // カメラ設定
-const camera = new THREE.PerspectiveCamera(30, width / height, 0.1, 1000); // fov, aspect, near, far
-camera.position.set(0, 0, 10);
+const camera = new THREE.PerspectiveCamera(70, width / height, 0.1, 1000); // fov, aspect, near, far
 	// fov：画角（視野角）。小さいほど「ズームしてるように」見える
 	// aspect：縦横比（width/height）
 	// near / far：描画する奥行き範囲（カメラからの距離）
 	// near より近いものは描画されない
 	// far より遠いものは描画されない
+camera.position.set(0, 0, 10); // カメラの位置
 
 // ライトの追加
 const light = new THREE.DirectionalLight(0xffffff, 40);
-light.position.set(0, 10, 0);
+light.position.set(0, 3, 0);
 scene.add(light);
 
-const light2 = new THREE.SpotLight(0xffffff, 10);
-light2.position.set(3, 0, 8);
+const light2 = new THREE.SpotLight(0xffffff, 30);
+light2.position.set(3, 0, 3);
 scene.add(light2);
 
-const light3 = new THREE.SpotLight(0xffffff, 100);
-light3.position.set(0, 0, 0);
-light3.target.position.set(8, 3, 0);
+const light3 = new THREE.SpotLight (0xffffff, 100);
+light3.position.set(-1, 0, 1);
+light3.target.position.set(0, 0, 10);
 scene.add(light3);
 scene.add(light3.target);
+
+// debugger: ライトの向きがわかるようにヘルパーを追加
+const helper = new THREE.DirectionalLightHelper( light, 2 );
+scene.add( helper );
+const helper2 = new THREE.DirectionalLightHelper( light2, 2 );
+scene.add( helper2 );
+const helper3 = new THREE.DirectionalLightHelper( light3, 2 );
+scene.add( helper3 );
 
 // ====== ズーム中だけ暗い箇所（zoomTarget）を照らす補助ライト ======
 // 通常時は intensity=0 にしておき、ズーム中だけ点灯させます。
 const zoomSpot = new THREE.SpotLight(0xffffff, 0, 40, Math.PI / 6, 0.45, 1); // color, intensity, distance, angle, penumbra, decay
-	// intensity：明るさ（最初は 0 → 普段は消灯）
-	// distance：届く距離（40 まで）
-	// angle：開き角（Math.PI/6 = 約30°）
-	// penumbra：縁のボケ具合（0〜1）
-	// decay：距離減衰（距離で暗くなる度合い）
+// intensity：明るさ（最初は 0 → 普段は消灯）
+// distance：届く距離（40 まで）
+// angle：開き角（Math.PI/6 = 約30°）
+// penumbra：縁のボケ具合（0〜1）
+// decay：距離減衰（距離で暗くなる度合い）
 zoomSpot.castShadow = false;
 scene.add(zoomSpot);
 scene.add(zoomSpot.target);
+const helper4 = new THREE.DirectionalLightHelper( zoomSpot, 2 );
+scene.add( helper4 );
 
 // 必要なら全体の暗さを少し底上げ（不要なら 0 のままでOK）
 const fillAmbient = new THREE.AmbientLight(0xffffff, 2.0);
@@ -152,7 +169,7 @@ const ZOOM_END_SIDE = 'max';
 // +x: 右へ / -x: 左へ
 // +y: 上へ / -y: 下へ
 // +z: カメラ側へ / -z: 奥へ（※cameraが(0,0,10)なので基本はこう）
-const ZOOM_TWEAK = new THREE.Vector3(-1.1, 0.0, 0.0);
+const ZOOM_TWEAK = new THREE.Vector3(-1.2, 0.1, 0.0);
 
 // どれくらい寄るか（小さいほど近い）。カメラ方向に沿って寄せます。
 const ZOOM_DISTANCE = 0.5;
@@ -264,7 +281,7 @@ function isZoomPointFacingCamera() {
   return d >= FRONT_DOT_THRESHOLD;
 }
 
-const FRONT_QUAT_DOT_THRESHOLD = 0.99;
+const FRONT_QUAT_DOT_THRESHOLD = 0.8;
 let prevFrontQuatDot = 0;
 
 function isModelFacingDefaultFront() {
@@ -332,7 +349,7 @@ const ROTATE_Y_RATE = 2.0;
 const ROTATE_Z_RATE = 2.0;
 
 // ズーム中は回転をどれくらい遅くするか
-const ZOOM_ROTATE_MULTIPLIER = 0.2;
+const ZOOM_ROTATE_MULTIPLIER = 0.15; // 小さいほど遅い
 
 function animate() {
   requestAnimationFrame(animate);
@@ -399,7 +416,7 @@ function animate() {
     const t = easeInOut(tRaw);
 
     // ====== ズーム中は回転を止めず「減速」させる ======
-    const base = ROTATE_Y_RAD_PER_SEC * dt * ZOOM_ROTATE_MULTIPLIER;
+    const base = ROTATE_Y_RAD_PER_SEC * dt;
     model.rotation.x += base * ROTATE_X_RATE;
     model.rotation.y += base * ROTATE_Y_RATE;
     model.rotation.z += base * ROTATE_Z_RATE;
