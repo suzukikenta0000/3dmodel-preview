@@ -13,19 +13,13 @@ const clock = new THREE.Clock();
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true});
 renderer.setSize(canvasWidth, canvasheight);
 renderer.setPixelRatio(window.devicePixelRatio);
-// renderer.outputEncoding = THREE.sRGBEncoding;
-// renderer.toneMapping = THREE.ACESFilmicToneMapping;
-// renderer.toneMappingExposure = 1.5;
 
 // scene: シーン
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x101010);
 
-// --- HDRI Environment (backgroundは変えず、反射/間接光だけに使う) ---
-// 使い方:
-// 1) hdrファイルをプロジェクトに置く（例: /hdr/studio_small_08_1k.hdr）
-// 2) 下のHDRI_URLをそのパスに合わせる
-const HDRI_URL = 'shimadasama/3dmodel/sunny_rose_garden_2k.hdr'; // ←自分のhdrパスに変更
+// hdrファイルをプロジェクトに置く
+const HDRI_URL = 'shimadasama/3dmodel/sunny_rose_garden_2k.hdr';
 
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
 pmremGenerator.compileEquirectangularShader();
@@ -79,59 +73,36 @@ function applyEnvMapIntensity(root, intensity = 1.0) {
 
 loadHDRIEnvironment(HDRI_URL);
 
-
 // camera: カメラ
 const camera = new THREE.PerspectiveCamera(30, canvasWidth / canvasheight, 0.1, 1000);
 const cameraTarget = new THREE.Vector3(0, 0, 0);
 camera.position.set(0, 0, 10); // モデル中心から手前に10の位置
 
 // rigth: ライト
-// --- Lighting helpers (shadow lift + zoom follow light) ---
-// 影を少し持ち上げる（ズーム時に内側が真っ黒になりにくい）
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x202020, 2);
-scene.add(hemiLight);
+// カメラ追従
+const zoomLight = new THREE.PointLight(0xffffff, 15);
+zoomLight.visible = false; // 通常時はOFF
+scene.add(zoomLight);
 
-// カメラ追従のフィルライト（ズーム時に刻印周りを最低限見えるようにする）
-const zoomFillLight = new THREE.PointLight(0xffffff, 15);
-zoomFillLight.visible = false; // 通常時はOFF
-scene.add(zoomFillLight);
+const keyLight = new THREE.SpotLight(0xffffff, 15);
+keyLight.position.set(3, 0, 3);
+scene.add(keyLight);
 
-const light = new THREE.DirectionalLight(0xffffff, 10);
-light.position.set(0, 3, 0);
-scene.add(light);
-const light11 = new THREE.DirectionalLight(0xffffff, 70);
-light11.position.set(-2, 0.5, -3);
-scene.add(light11);
+const fillLight = new THREE.SpotLight(0xffffff, 7);
+fillLight.position.set(-3, 0, 3);
+scene.add(fillLight);
 
-const light2 = new THREE.SpotLight(0xffffff, 15);
-light2.position.set(3, 0, 3);
-scene.add(light2);
+const backLight = new THREE.DirectionalLight(0xffffff, 70);
+backLight.position.set(-2, 0.5, -3);
+scene.add(backLight);
 
-const light22 = new THREE.SpotLight(0xffffff, 15);
-light22.position.set(-3, 0, 3);
-scene.add(light22);
+const innerPointLight_1 = new THREE.PointLight(0xffffff, 30);
+innerPointLight_1.position.set(1, 0, -0.2);
+scene.add(innerPointLight_1);
 
-const pointlight3 = new THREE.PointLight(0xffffff, 30);
-pointlight3.position.set(1, 0, -0.2);
-scene.add(pointlight3);
-
-const pointlight5 = new THREE.PointLight(0xffffff, 30);
-pointlight5.position.set(0.2, -0.2, -0.5);
-scene.add(pointlight5);
-
-// const helper = new THREE.DirectionalLightHelper( light, 2 );
-// scene.add( helper );
-// const helper2 = new THREE.DirectionalLightHelper( light2, 2 );
-// scene.add( helper2 );
-// const helper3 = new THREE.DirectionalLightHelper( light11, 2 );
-// scene.add( helper3 );
-// const helper4 = new THREE.DirectionalLightHelper( light22, 2 );
-// scene.add( helper4 );
-
-// const pointhelp3 = new THREE.PointLightHelper( pointlight3, 0.5 );
-// scene.add( pointhelp3 );
-// const pointhelp5 = new THREE.PointLightHelper( pointlight5, 0.5 );
-// scene.add( pointhelp5 );
+const innerPointLight_2 = new THREE.PointLight(0xffffff, 30);
+innerPointLight_2.position.set(0.2, -0.2, -0.5);
+scene.add(innerPointLight_2);
 
 // model: モデル
 const loader = new GLTFLoader();
@@ -139,8 +110,9 @@ let model = null;
 let loadTime = null;
 let t = 0;
 let mode = null; // 状態ステータス
+const MODEL_INITIAL_ROT_X = -Math.PI / 2; // 初期向き(-90度上向き)
 
-// ズーム状態
+// モデル状態
 // ズーム1: 左から右へ表面をなぞるようなズーム
 // ズーム2: モデルの刻印へズーム
 const zoomStatu = {
@@ -160,14 +132,15 @@ const zoomStatu = {
 const turnSpeed = {
   // 通常時
     BASE: 0.02,
-    // ズーム時
+    // ズーム1の時
     ROTA_SWEEP_Y: 0.1,
     ROTA_SWEEP_Z: 0.1,
-    ROTA_SPOT_Y: 0.1,
-    ROTA_SPOT_Z: 0.1
+    // ズーム2の時
+    ROTA_SPOT_Y: 0.09,
+    ROTA_SPOT_Z: 0.09
   };
 
-  // デフォルト状態の保存
+  // デフォルト状態
 const defaultView = {
   inited: false,
   fov: 0,
@@ -176,7 +149,7 @@ const defaultView = {
   quat: new THREE.Quaternion()
 };
 
-// デフォルト保存
+// デフォルト状態の保存
 function captureDefaultView(camera) {
   defaultView.inited = true;
   defaultView.fov = camera.fov;
@@ -184,9 +157,6 @@ function captureDefaultView(camera) {
   defaultView.pos.copy(camera.position);
   defaultView.quat.setFromEuler(new THREE.Euler(0, 0, 0, "XYZ")).normalize();
 }
-
-const MODEL_INITIAL_ROT_X = -Math.PI / 2; // 初期向き(-90度上向き)
-let modelBaseCamera;
 
 loader.load( 
   'shimadasama/3dmodel/shimada-bold-test.glb', // url
@@ -197,11 +167,11 @@ loader.load(
     model.rotation.x = MODEL_INITIAL_ROT_X;
     scene.add(model);
 
-    // HDRI反射の効き（刻印が暗い場合は 1.2〜2.0 に上げる）
-    applyEnvMapIntensity(model, 1.2);
+    applyEnvMapIntensity(model, 1.2); // HDRI反射の効き
+    setupModelBase(model, camera); // ポジション、カメラ位置のデフォルトセット
+    captureDefaultView(camera); // defualtを保存
 
     loadTime = performance.now(); // ページ表示からこの処理が動いた時間
-    modelBaseCamera = setupModelBase(model, camera); // ポジション、カメラ位置のデフォルトセット
   },
   
   undefined, // onProgress
@@ -212,7 +182,7 @@ loader.load(
   }
 )
 
-// モデル・カメラ基準取得
+// モデル・カメラ基準セット
 function setupModelBase(model, camera) {
   model.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(model); // バウンディングボックス作成
@@ -231,8 +201,9 @@ const ZoomType = {
   SPOT: "SPOT"
 };
 
-let nextZoomType = ZoomType.SWEEP;
+let nextZoomType;
 
+// 回転スピード
 const RotPreset = {
   NORMAL: {
     y: turnSpeed.BASE,
@@ -264,6 +235,7 @@ function getRotationSpeedByMode(mode) {
   }
 }
 
+// debag
 // const controls = new OrbitControls(camera, canvas);
 // controls.enableDamping = true; // 慣性を有効にする(操作を滑らかにするやつ)
 // controls.dampingFactor = 0.08;// 慣性の減衰係数
@@ -271,7 +243,7 @@ function getRotationSpeedByMode(mode) {
 function animate() {
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
-  // controls.update();
+  // controls.update(); // debag
 
   const delta = clock.getDelta(); // 前回のこの処理からの時間を取得
   const elapsed = (performance.now() - loadTime) * 0.001;
@@ -283,21 +255,18 @@ function animate() {
       const rot = getRotationSpeedByMode(mode);
       model.rotation.y += rot.y;
       model.rotation.z += rot.z;
-      // console.log("mode", mode, "rot", rot);
 
-      // ズーム中だけカメラ位置にフィルライトを置く（刻印が暗くなる対策）
+      // ズーム中のカメラ設定
       const isZooming = (
         mode === zoomStatu.ZOOM_SPOT_IN ||
         mode === zoomStatu.ZOOM_SPOT_HOLD
       );
-      zoomFillLight.visible = isZooming;
+      zoomLight.visible = isZooming;
       if (isZooming) {
-        // カメラの少し前方に置く（内側を照らしやすくする）
         const forward = new THREE.Vector3();
         camera.getWorldDirection(forward);
-        zoomFillLight.position.copy(camera.position).add(forward.multiplyScalar(0.25));
+        zoomLight.position.copy(camera.position).add(forward.multiplyScalar(0.25));
       }
-
 
       if (t < 1) {
         t += delta / 2;
@@ -305,27 +274,23 @@ function animate() {
   
         model.rotation.x = MODEL_INITIAL_ROT_X * (1 - t); // 正面(0度)に戻す
       } else {
-        if (!defaultView.inited) { // defualtを保存（一回だけ
-          captureDefaultView(camera);
-        }
-        console.log(mode); // debag
+        // console.log(mode); // debag
         switch (mode) {
           case zoomStatu.ZOOM_SWEEP_IN:
-            zoomCtx.zoom.target = new THREE.Vector3(0, 0, 0);
-            zoomCtx.zoom.pos = new THREE.Vector3(-1, -0.25, 3); // ズーム位置
-            zoomIn(delta, camera, zoomCtx.zoom.target, zoomCtx.zoom.pos, camera.fov, zoomCtx.holdDuration);
+            zoomCtx.lookAtCenterEnabled = true;
+            zoomCtx.sweep.pos = new THREE.Vector3(-2, -0.25, 3); // ズーム位置
+            zoomIn(delta, camera, zoomCtx.sweep.pos, camera.fov, zoomCtx.holdDuration);
             break;
 
           case zoomStatu.ZOOM_SWEEP_ACTIVE:
-            zoomCtx.active.pos = new THREE.Vector3(1.2, 0.3, 2.5);
+            zoomCtx.active.pos = new THREE.Vector3(2.0, 0.3, 2.5);
             zoomSweepActive(delta, camera, zoomCtx.active.pos);
             nextZoomType = ZoomType.SPOT;
             break;
 
           case zoomStatu.ZOOM_SPOT_IN:
-            zoomCtx.spot.pos = new THREE.Vector3(1, 0, -0.1); // ズーム位置
-            zoomCtx.spot.target = new THREE.Vector3(0.23, 0, 0);
-            zoomIn(delta, camera, zoomCtx.spot.target, zoomCtx.spot.pos, camera.fov, zoomCtx.holdDuration);
+            zoomCtx.spot.pos = new THREE.Vector3(1, 0.08, -0.6); // ズーム位置
+            zoomIn(delta, camera, zoomCtx.spot.pos, camera.fov, zoomCtx.holdDuration);
             break;
 
           case zoomStatu.ZOOM_SPOT_HOLD:
@@ -361,30 +326,30 @@ const zoomCtx = {
   posFrom: new THREE.Vector3(),
   posTo: new THREE.Vector3(),
 
- zoom: {
+ sweep: {
   fov: 0,
   target: new THREE.Vector3(),
-  pos: new THREE.Vector3(),
+  pos: new THREE.Vector3()
  },
 
  active: {
   fov: 0,
   target: new THREE.Vector3(),
-  pos: new THREE.Vector3(),
+  pos: new THREE.Vector3()
  },
 
  spot: {
    fov: 0,
    target: new THREE.Vector3(),
-   pos: new THREE.Vector3(),
+   pos: new THREE.Vector3()
   },
  
   hold: {
    elapsed: 0 // 経過時間
   },
 
-  holdDuration: 1.6 // 舐める幅（モデルに合わせて調整）
-
+  holdDuration: 1.6, // 舐める幅（モデルに合わせて調整）
+  lookAtCenterEnabled: false
 }
 
 function clamp01(x) {
@@ -419,19 +384,17 @@ function shouldTriggerZoom(model) {
 }
 
 // ズームイン
-function zoomIn(delta, camera, targetTo, PosTo, fovTo, duration) {
+function zoomIn(delta, camera, PosTo, fovTo, duration) {
   if (!zoomCtx.inited) { // 初回のみ設定
     zoomCtx.inited = true;
     zoomCtx.t = 0;
 
     // ズーム前（From）
     zoomCtx.fovFrom = camera.fov;
-    zoomCtx.targetFrom.copy(cameraTarget);
     zoomCtx.posFrom.copy(camera.position);
 
     // ズーム後（To）
     zoomCtx.fovTo = fovTo;
-    zoomCtx.targetTo.copy(targetTo);
     zoomCtx.posTo.copy(PosTo);
   }
 
@@ -449,9 +412,10 @@ function zoomIn(delta, camera, targetTo, PosTo, fovTo, duration) {
   );
   camera.updateProjectionMatrix();
 
-  // 注視点を補間して「特定位置を中央に持っていく」
-  // cameraTarget.lerpVectors(zoomCtx.targetFrom, zoomCtx.targetTo, tt);
-  // camera.lookAt(cameraTarget);
+  // 注視点を補間して「特定位置を中央に持っていく
+  if (zoomCtx.lookAtCenterEnabled) {
+    camera.lookAt(cameraTarget);
+  }
 
   // 完了判定
   if (zoomCtx.t >= 1){
@@ -469,13 +433,12 @@ function zoomIn(delta, camera, targetTo, PosTo, fovTo, duration) {
 }
 
 // 表面を流れるように移動
-function zoomSweepActive(delta, camera, PosTo, duration = 2.5) {
+function zoomSweepActive(delta, camera, PosTo, duration = 4) {
   if (!zoomCtx.inited) { // 初回のみ設定
     zoomCtx.inited = true;
     zoomCtx.t = 0;
 
     zoomCtx.posFrom.copy(camera.position);
-
     zoomCtx.posTo.copy(PosTo);
   }
 
@@ -485,6 +448,7 @@ function zoomSweepActive(delta, camera, PosTo, duration = 2.5) {
 
   // カメラ位置を動かす
   camera.position.lerpVectors(zoomCtx.posFrom, zoomCtx.posTo, tt);
+  camera.lookAt(cameraTarget);
 
   // 完了判定
   if (zoomCtx.t >= 1) {
@@ -505,7 +469,7 @@ function zoomOut(delta, camera, duration) {
 
     // 現状を取得（ズーム状態
     zoomCtx.fovFrom = camera.fov;
-    // zoomCtx.targetFrom.copy(cameraTarget);
+    zoomCtx.targetFrom.copy(cameraTarget);
     zoomCtx.posFrom.copy(camera.position);
   }
 
@@ -524,11 +488,14 @@ function zoomOut(delta, camera, duration) {
   camera.updateProjectionMatrix();
 
   // 注視点をデフォへ
-  // cameraTarget.lerpVectors(zoomCtx.targetFrom, defaultView.target, tt);
-  // camera.lookAt(cameraTarget);
+  if (zoomCtx.lookAtCenterEnabled) {
+    cameraTarget.lerpVectors(zoomCtx.targetFrom, defaultView.target, tt);
+    camera.lookAt(cameraTarget);
+  }
 
   // 完了判定
   if (zoomCtx.t >= 1) {
+    zoomCtx.lookAtCenterEnabled = false;
     zoomCtx.inited = false;
     mode = zoomStatu.ZOOM_IDLE;
   }
