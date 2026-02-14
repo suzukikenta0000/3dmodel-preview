@@ -3,6 +3,24 @@ import { GLTFLoader } from 'https://unpkg.com/three@0.127.0/examples/jsm/loaders
 import { RGBELoader } from 'https://unpkg.com/three@0.127.0/examples/jsm/loaders/RGBELoader.js';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.127.0/examples/jsm/controls/OrbitControls.js';
 
+// url取得
+// const viewer = document.getElementById("three-canvas2");
+// const modelUrl = viewer.dataset.modelUrl;
+
+// window.addEventListener("load", () => {
+//   urlCheck();
+// })
+
+// function urlCheck() {
+//   if (!viewer) return;
+//   modelUrl = viewer.dataset.modelUrl || viewer.getAttribute("data-model-url");
+//   console.log(viewer);
+//   console.log(modelUrl);
+//   if (!modelUrl) {
+//     console.error("URLが取得できてません")
+//   }
+// }
+
 // Variables: 変数
 const canvas = document.getElementById('three-canvas2');
 const canvasWidth = 500;
@@ -131,14 +149,14 @@ const zoomStatu = {
 // ターンスピード
 const turnSpeed = {
   // 通常時
-    BASE: 0.02,
-    // ズーム1の時
-    ROTA_SWEEP_Y: 0.1,
-    ROTA_SWEEP_Z: 0.1,
-    // ズーム2の時
-    ROTA_SPOT_Y: 0.09,
-    ROTA_SPOT_Z: 0.09
-  };
+  BASE: 0.02,
+  // ズーム1の時
+  ROTA_SWEEP_Y: 0.1,
+  ROTA_SWEEP_Z: 0.1,
+  // ズーム2の時
+  ROTA_SPOT_Y: 0.05,
+  ROTA_SPOT_Z: 0.05
+};
 
   // デフォルト状態
 const defaultView = {
@@ -159,7 +177,7 @@ function captureDefaultView(camera) {
 }
 
 loader.load( 
-  'shimadasama/3dmodel/shimada-bold-test.glb', // url
+  'shimadasama/3dmodel/shimada-bold-test0212.glb', // url
 
   (gltf) => { // onload
     model = gltf.scene;
@@ -289,7 +307,7 @@ function animate() {
             break;
 
           case zoomStatu.ZOOM_SPOT_IN:
-            zoomCtx.spot.pos = new THREE.Vector3(1, 0.08, -0.6); // ズーム位置
+            zoomCtx.spot.pos = new THREE.Vector3(0.8, 0, -0.6); // ズーム位置
             zoomIn(delta, camera, zoomCtx.spot.pos, camera.fov, zoomCtx.holdDuration);
             break;
 
@@ -303,7 +321,7 @@ function animate() {
             break;
 
           default:
-            if (shouldTriggerZoom(model)) {
+            if (shouldTriggerZoom(model, nextZoomType)) {
               mode = (nextZoomType === ZoomType.SPOT) // ズームの切り替え
                 ? zoomStatu.ZOOM_SPOT_IN
                 : zoomStatu.ZOOM_SWEEP_IN;
@@ -364,14 +382,26 @@ function easeInOutCubic(t) {
 const frontGate = { armed: true };
 
 // 正面に近づいたら動くようにトリガーをセット
-function shouldTriggerZoom(model) {
+function shouldTriggerZoom(model, zoomType) {
   if (!defaultView.inited) return false;
 
   const cur = model.quaternion.clone().normalize();
   const deg = THREE.MathUtils.radToDeg(cur.angleTo(defaultView.quat));
 
-  const enter = 20;  // ここを下回ったら発火 数値が大きいほど正面の手前でズームする
-  const exit  = 38;  // ここを上回ったら再アーム exit > enter にする
+  let enter; // ここを下回ったら発火 数値が大きいほど正面の手前でズームする
+  let exit; // ここを上回ったら再アーム exit > enter にする
+
+  switch (zoomType) {
+    case ZoomType.SPOT:
+      enter = 8;
+      exit = 20;
+      break;
+    
+    default:
+      enter = 20;
+      exit = 38;
+      break;
+  }
 
   if (frontGate.armed && deg <= enter) {
     frontGate.armed = false;
