@@ -27,82 +27,61 @@
         environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">  // 環境マップと露出を指定(ライト効果)
     </model-viewer>
     -->
+<section>
 
-    <!-- <canvas id="three-canvas"></canvas> -->
-    <canvas 
-    id="three-canvas2"
-    data-model-url="shimadasama/3dmodel/shimada-bold-test.glb"
-    ></canvas>
+    <div class="divbox">
+
+        <dl class="dl_flex">
+            <div class="dl_flex-item">
+                <dt>type：</dt>
+                <dd>bangle / bold</dd>
+            </div>
+            <div class="dl_flex-item">
+                <dt>color：</dt>
+                <dd>glod-18金</dd>
+            </div>
+        </dl>
+        <canvas 
+        id="three-canvas2"
+        class="three-canvas-simple1"
+        data-model-url="shimadasama/complate/bold-gold18.glb"
+        data-model-type="bangle_bold"
+        ></canvas>
+        
+        <dl class="dl_flex">
+            <div class="dl_flex-item">
+                <dt>type：</dt>
+                <dd>ring</dd>
+            </div>
+            <div class="dl_flex-item">
+                <dt>color：</dt>
+                <dd>bitter_gold</dd>
+            </div>
+        </dl>
+        <canvas
+        id="three-canvas3"
+        class="three-canvas-simple1"
+        data-model-url="shimadasama/complate/ring-brack.glb"
+        data-model-type="ring"
+        ></canvas>
     
-    <section class="border-top">
         <dl class="dl_flex">
             <div class="dl_flex-item">
                 <dt>type：</dt>
-                <dd>bangle / light</dd>
+                <dd>bangle / EX_bold</dd>
             </div>
             <div class="dl_flex-item">
                 <dt>color：</dt>
-                <dd>yellow glod</dd>
+                <dd>silver</dd>
             </div>
         </dl>
-        <div class="dmodel-view-box">
-            <div class="model-3d">
-                <model-viewer 
-                    class="model"
-                    id="Interpolation" 
-                    src="shimadasama/3dmodel/shimada-EXbold-test.glb" 
-                    camera-controls
-                    auto-rotate
-                    interaction-prompt="none"
-                    rotation-per-second="30deg"
-                    disable-pan
-                    environment-image="shimadasama/3dmodel/Untitled.hdr"
-                    exposure="3.5"
-
-                    interpolation-decay="200"
-                    camera-target="0m 0m 0m"
-                    >
-                </model-viewer>
-            </div>
-            <div class="product-img-box">
-                <img src="shimadasama/3dmodel/banglelightk.webp" alt="img" class="product-img">
-            </div>
-        </div>
-    </section>
-
-    <section class="border-top">
-        <dl class="dl_flex">
-            <div class="dl_flex-item">
-                <dt>type：</dt>
-                <dd>bangle / light</dd>
-            </div>
-            <div class="dl_flex-item">
-                <dt>color：</dt>
-                <dd>yellow glod</dd>
-            </div>
-        </dl>
-        <div class="dmodel-view-box">
-            <div class="model-3d">
-                <model-viewer 
-                    class="model"
-                    src="shimadasama/complate/bangleLight-yellowGold.glb" 
-                    camera-controls
-                    auto-rotate
-                    interaction-prompt="none"
-                    rotation-per-second="30deg"
-                    disable-pan
-                    environment-image="shimadasama/3dmodel/Untitled.hdr"
-                    exposure="3.5"
-                    >
-                </model-viewer>
-            </div>
-            <div class="product-img-box">
-                <img src="shimadasama/3dmodel/banglelightk.webp" alt="img" class="product-img">
-            </div>
-        </div>
-    </section>
-
-    <section class="border-top">
+        <canvas
+        id="three-canvas4"
+        class="three-canvas-simple1"
+        data-model-url="shimadasama/complate/EX-bold-silver.glb"
+        data-model-type="bangle_ex_bold"
+        ></canvas>
+    
         <dl class="dl_flex">
             <div class="dl_flex-item">
                 <dt>type：</dt>
@@ -113,26 +92,12 @@
                 <dd>silver</dd>
             </div>
         </dl>
-        <div class="dmodel-view-box">
-            <div class="model-3d">
-                <model-viewer 
-                    class="model" 
-                    src="shimadasama/3dmodel/light-silver.glb" 
-                    camera-controls
-                    auto-rotate
-                    interaction-prompt="none"
-                    rotation-per-second="30deg"
-                    disable-pan
-                    environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">
-                </model-viewer>
-            </div>
-            <div class="product-img-box">
-                <img src="shimadasama/3dmodel/light-silver.webp" alt="img" class="product-img">
-            </div>
-        </div>
-    </section>
-
-    <section class="border-top">
+        <canvas
+        class="three-canvas-simple1"
+        data-model-url="shimadasama/complate/light-silver.glb"
+        data-model-type="bangle"
+        ></canvas>
+        
         <dl class="dl_flex">
             <div class="dl_flex-item">
                 <dt>type：</dt>
@@ -140,122 +105,66 @@
             </div>
             <div class="dl_flex-item">
                 <dt>color：</dt>
-                <dd>bitter glod</dd>
+                <dd>gold24 金</dd>
             </div>
         </dl>
-        <div class="dmodel-view-box">
-            <div class="model-3d">
-                <model-viewer 
-                    class="model" 
-                    src="shimadasama/3dmodel/light-bitterGold.glb" 
-                    camera-controls
-                    auto-rotate
-                    interaction-prompt="none"
-                    rotation-per-second="30deg"
-                    disable-pan
-                    environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">
-                </model-viewer>
-            </div>
-            <div class="product-img-box">
-                <img src="shimadasama/3dmodel/bangle-bitterGold.webp" alt="img" class="product-img">
-            </div>
-        </div>
-    </section>
-
-    <section class="border-top">
-        <dl class="dl_flex">
-            <div class="dl_flex-item">
-                <dt>type：</dt>
-                <dd>bangle / blod</dd>
-            </div>
-            <div class="dl_flex-item">
-                <dt>color：</dt>
-                <dd>yellow glod</dd>
-        </dl>
-        <div class="dmodel-view-box">
-            <div class="model-3d">
-                <model-viewer 
-                    class="model"
-                    src="shimadasama/3dmodel/shimada-bold.glb"
-                    camera-controls
-                    auto-rotate
-                    interaction-prompt="none"
-                    rotation-per-second="30deg"
-                    camera-orbit="0deg 75deg 10m"
-                    disable-pan
-                    environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="3.5">
-                </model-viewer>
-            </div>
-            <div class="product-img-box">
-                <img src="shimadasama/3dmodel/bangle-bold.webp" alt="img" class="product-img">
-            </div>
-        </div>
-    </section>
-
-    <section class="border-top">
-        <dl class="dl_flex">
-            <div class="dl_flex-item">
-                <dt>type：</dt>
-                <dd>bangle / EXbold</dd>
-            </div>
-            <div class="dl_flex-item">
-                <dt>color：</dt>
-                <dd>yellow glod</dd>
-            </div>
-        </dl>
-        <div class="dmodel-view-box">
-            <div class="model-3d">
-                <model-viewer 
-                    class="model"
-                    src="shimadasama/3dmodel/shimada-EXbold.glb"
-                    camera-controls
-                    auto-rotate
-                    interaction-prompt="none"
-                    rotation-per-second="30deg"
-                    camera-orbit="0deg 75deg 10m"
-                    disable-pan
-                    environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">
-                </model-viewer>
-            </div>
-            <div class="product-img-box">
-                <img src="shimadasama/3dmodel/bangle-EXbold.webp" alt="img" class="product-img">
-            </div>
-        </div>
-    </section>
-
-    <section class="border-top">
-        <dl class="dl_flex">
-            <div class="dl_flex-item">
-                <dt>type：</dt>
-                <dd>ring</dd>
-            </div>
-            <div class="dl_flex-item">
-                <dt>color：</dt>
-                <dd>yellow glod</dd>
-            </div>
-        </dl>
-        <div class="dmodel-view-box">
-            <div class="model-3d">
-                <model-viewer 
-                    class="model"
-                    src="shimadasama/3dmodel/shimada-ring.glb"
-                    camera-controls
-                    auto-rotate
-                    interaction-prompt="none"
-                    rotation-per-second="30deg"
-                    camera-orbit="0deg 75deg 10m"
-                    disable-pan
-                    environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">
-                </model-viewer>
-            </div>
-            <div class="product-img-box">
-                <img src="shimadasama/3dmodel/samplering-gold.webp" alt="img" class="product-img">
-            </div>
-        </div>
-    </section>
+        <canvas
+        class="three-canvas-simple1"
+        data-model-url="shimadasama/complate/light-gold24.glb"
+        data-model-type="bangle"
+        ></canvas>
     
-    <!-- <script type="module" src="js/three.js"></script> -->
-    <script type="module" src="js/main.js"></script>
+        <dl class="dl_flex">
+            <div class="dl_flex-item">
+                <dt>type：</dt>
+                <dd>bangle / light</dd>
+            </div>
+            <div class="dl_flex-item">
+                <dt>color：</dt>
+                <dd>gold18 金</dd>
+            </div>
+        </dl>
+        <canvas
+        class="three-canvas-simple1"
+        data-model-url="shimadasama/complate/light-gold18.glb"
+        data-model-type="bangle"
+        ></canvas>
+        
+        <dl class="dl_flex">
+            <div class="dl_flex-item">
+                <dt>type：</dt>
+                <dd>bangle / light</dd>
+            </div>
+            <div class="dl_flex-item">
+                <dt>color：</dt>
+                <dd>gold10 金</dd>
+            </div>
+        </dl>
+        <canvas
+        class="three-canvas-simple1"
+        data-model-url="shimadasama/complate/light-gold10.glb"
+        data-model-type="bangle"
+        ></canvas>
+        
+        <dl class="dl_flex">
+            <div class="dl_flex-item">
+                <dt>type：</dt>
+                <dd>bangle / light</dd>
+            </div>
+            <div class="dl_flex-item">
+                <dt>color：</dt>
+                <dd>bitter_gold</dd>
+            </div>
+        </dl>
+        <canvas
+        class="three-canvas-simple1"
+        data-model-url="shimadasama/complate/light-brack.glb"
+        data-model-type="bangle"
+        ></canvas>
+    
+        <script type="module" src="js/main-copy1.js"></script>
+    </div>
+</section>
 </body>
 
 </html>

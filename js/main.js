@@ -4,22 +4,36 @@ import { RGBELoader } from 'https://unpkg.com/three@0.127.0/examples/jsm/loaders
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.127.0/examples/jsm/controls/OrbitControls.js';
 
 // url取得
-// const viewer = document.getElementById("three-canvas2");
-// const modelUrl = viewer.dataset.modelUrl;
+const viewer = document.getElementById("three-canvas2");
+const modelUrl = viewer.dataset.modelUrl;
+const itemType = viewer.dataset.modelType;
 
-// window.addEventListener("load", () => {
-//   urlCheck();
-// })
+function dataCheck() {
+  if (!viewer) return;
+  if (!modelUrl) {
+    console.error("URLが取得できてません")
+  }
+  if (!itemType) {
+    console.error("タグにアクセサリー種類が指定されていません")
+  }
+  console.log(itemType)
+}
 
-// function urlCheck() {
-//   if (!viewer) return;
-//   modelUrl = viewer.dataset.modelUrl || viewer.getAttribute("data-model-url");
-//   console.log(viewer);
-//   console.log(modelUrl);
-//   if (!modelUrl) {
-//     console.error("URLが取得できてません")
-//   }
-// }
+function setType (itemType) {
+  switch(itemType) {
+    case type.RING:
+      return type.RING;
+
+    case type.BANGLE_BOLD:
+      return type.BANGLE_BOLD;
+        
+    case type.BANGLE_EX_BOLD:
+      return type.BANGLE_EX_BOLD;
+      
+    default:
+      return type.BANGLE_LIGHT;
+  }
+}
 
 // Variables: 変数
 const canvas = document.getElementById('three-canvas2');
@@ -94,7 +108,6 @@ loadHDRIEnvironment(HDRI_URL);
 // camera: カメラ
 const camera = new THREE.PerspectiveCamera(30, canvasWidth / canvasheight, 0.1, 1000);
 const cameraTarget = new THREE.Vector3(0, 0, 0);
-camera.position.set(0, 0, 10); // モデル中心から手前に10の位置
 
 // rigth: ライト
 // カメラ追従
@@ -122,13 +135,24 @@ const innerPointLight_2 = new THREE.PointLight(0xffffff, 30);
 innerPointLight_2.position.set(0.2, -0.2, -0.5);
 scene.add(innerPointLight_2);
 
+// modelType
+const type = {
+  RING: "ring",
+  BANGLE_EX_BOLD: "bangle_ex_bold",
+  BANGLE_BOLD: "bangle_bold",
+  BANGLE_LIGHT: "bangle_light",
+}
+
+const modelType = setType(itemType);
+
 // model: モデル
 const loader = new GLTFLoader();
 let model = null;
 let loadTime = null;
 let t = 0;
 let mode = null; // 状態ステータス
-const MODEL_INITIAL_ROT_X = -Math.PI / 2; // 初期向き(-90度上向き)
+const MODEL_INITIAL_ROT_X = modelType == type.RING ? Math.PI / 2 : -Math.PI / 2; // 初期向き(-90度上向き)
+const CAMERA_DISTANCE_MULTIPLIER = modelType == type.RING ? 15 : 5.2;
 
 // モデル状態
 // ズーム1: 左から右へ表面をなぞるようなズーム
@@ -177,7 +201,7 @@ function captureDefaultView(camera) {
 }
 
 loader.load( 
-  'shimadasama/3dmodel/shimada-bold-test0212.glb', // url
+  modelUrl, // url
 
   (gltf) => { // onload
     model = gltf.scene;
@@ -207,7 +231,7 @@ function setupModelBase(model, camera) {
   const center = box.getCenter(new THREE.Vector3()); // ボックスの中心を取得
   const size = box.getSize(new THREE.Vector3()); // ボックスのサイズを取得
   const radius = size.length() * 0.5;
-  const defaultPos = center.clone().add(new THREE.Vector3(0, 0, radius * 5.2)); // カメラのポジション指定
+  const defaultPos = center.clone().add(new THREE.Vector3(0, 0, radius * CAMERA_DISTANCE_MULTIPLIER)); // カメラのポジション指定
   camera.position.copy(defaultPos); // ポジションにセット
   camera.lookAt(center);
 
@@ -258,6 +282,10 @@ function getRotationSpeedByMode(mode) {
 // controls.enableDamping = true; // 慣性を有効にする(操作を滑らかにするやつ)
 // controls.dampingFactor = 0.08;// 慣性の減衰係数
 
+window.addEventListener("load", () => {
+  dataCheck();
+})
+
 function animate() {
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
@@ -296,19 +324,16 @@ function animate() {
         switch (mode) {
           case zoomStatu.ZOOM_SWEEP_IN:
             zoomCtx.lookAtCenterEnabled = true;
-            zoomCtx.sweep.pos = new THREE.Vector3(-2, -0.25, 3); // ズーム位置
-            zoomIn(delta, camera, zoomCtx.sweep.pos, camera.fov, zoomCtx.holdDuration);
+            zoomIn(delta, camera, presets.sweep.pos, camera.fov, zoomCtx.holdDuration);
             break;
 
           case zoomStatu.ZOOM_SWEEP_ACTIVE:
-            zoomCtx.active.pos = new THREE.Vector3(2.0, 0.3, 2.5);
-            zoomSweepActive(delta, camera, zoomCtx.active.pos);
+            zoomSweepActive(delta, camera, presets.active.pos);
             nextZoomType = ZoomType.SPOT;
             break;
 
           case zoomStatu.ZOOM_SPOT_IN:
-            zoomCtx.spot.pos = new THREE.Vector3(0.8, 0, -0.6); // ズーム位置
-            zoomIn(delta, camera, zoomCtx.spot.pos, camera.fov, zoomCtx.holdDuration);
+            zoomIn(delta, camera, presets.spot.pos, camera.fov, zoomCtx.holdDuration);
             break;
 
           case zoomStatu.ZOOM_SPOT_HOLD:
@@ -332,7 +357,88 @@ function animate() {
   }
 }
 
+const presets = getCameraPresetsByModelType(modelType);
 animate();
+
+function getCameraPresetsByModelType(modelType) {
+  switch (modelType) {
+    case type.RING:
+      return {
+        sweep:  { 
+          fov: 35,
+          target: new THREE.Vector3(0, 0.02, 0),
+          pos: new THREE.Vector3(-1, -0.25, 1)
+        },
+        active: {
+          fov: 28,
+          target: new THREE.Vector3(0, 0.00, 0),
+          pos: new THREE.Vector3(1.0, 0.3, 1)
+        },
+        spot: {
+          fov: 18,
+          target: new THREE.Vector3(0, 0.00, 0),
+          pos: new THREE.Vector3(0.1, 0, -0.05)
+        },
+      };
+
+    case type.BANGLE_EX_BOLD:
+      return {
+        sweep: {
+          fov: 40,
+          target: new THREE.Vector3(0, 0, 0),
+          pos: new THREE.Vector3(-2, -0.25, 3)
+        },
+        active: {
+          fov: 32,
+          target: new THREE.Vector3(0, 0, 0),
+          pos: new THREE.Vector3(2.0, 0.3, 2.5) 
+        },
+        spot: {
+          fov: 22,
+          target: new THREE.Vector3(0, 0, 0),
+          pos: new THREE.Vector3(0.7, 0, -0.5)
+        },
+      };
+      
+    case type.BANGLE_BOLD:
+      return {
+        sweep: {
+          fov: 40,
+          target: new THREE.Vector3(0, 0, 0),
+          pos: new THREE.Vector3(-2, -0.25, 3)
+        },
+        active: {
+          fov: 32,
+          target: new THREE.Vector3(0, 0, 0),
+          pos: new THREE.Vector3(2.0, 0.3, 2.5)
+        },
+        spot: {
+          fov: 22,
+          target: new THREE.Vector3(0, 0, 0),
+          pos: new THREE.Vector3(0.75, 0, -0.5)
+        },
+      };
+
+    default:
+      return {
+        sweep: {
+          fov: 40,
+          target: new THREE.Vector3(0, 0, 0),
+          pos: new THREE.Vector3(-2, -0.25, 3)
+        },
+        active: {
+          fov: 30,
+          target: new THREE.Vector3(0, 0, 0),
+          pos: new THREE.Vector3(2.0, 0.3, 2.5)
+        },
+        spot: {
+          fov: 20,
+          target: new THREE.Vector3(0, 0, 0),
+          pos: new THREE.Vector3(0.8, 0, -0.6)
+        },
+      };
+  }
+}
 
 const zoomCtx = {
   inited: false, 
@@ -343,24 +449,6 @@ const zoomCtx = {
   targetTo: new THREE.Vector3(),
   posFrom: new THREE.Vector3(),
   posTo: new THREE.Vector3(),
-
- sweep: {
-  fov: 0,
-  target: new THREE.Vector3(),
-  pos: new THREE.Vector3()
- },
-
- active: {
-  fov: 0,
-  target: new THREE.Vector3(),
-  pos: new THREE.Vector3()
- },
-
- spot: {
-   fov: 0,
-   target: new THREE.Vector3(),
-   pos: new THREE.Vector3()
-  },
  
   hold: {
    elapsed: 0 // 経過時間
