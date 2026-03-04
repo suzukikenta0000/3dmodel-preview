@@ -154,7 +154,6 @@ let mode = null; // 状態ステータス
 let modelRoot = null;      // sceneに載せるルート（spinGroup）
 let spinGroup = null;      // 回転専用
 let correctionGroup = null;// 初期補正→0戻し専用
-let skipZoomTriggerOnce = true; // 初回UNWINDだけ true
 const MODEL_INITIAL_ROT_X = modelType == type.RING ? Math.PI / 2 : -Math.PI / 2; // 初期向き(-90度上向き)
 const MODEL_INITIAL_ROT_Z = Math.PI; // 左右反転 180
 const CAMERA_DISTANCE_MULTIPLIER = modelType == type.RING ? 15 : 5.2;
@@ -279,6 +278,7 @@ function setupModelBase(model, camera) {
   const defaultPos = center.clone().add(new THREE.Vector3(0, 0, radius * CAMERA_DISTANCE_MULTIPLIER)); // カメラのポジション指定
   camera.position.copy(defaultPos); // ポジションにセット
   camera.lookAt(center);
+  cameraTarget.copy(center);
 
   return { center, radius, defaultPos };
 } 
@@ -437,11 +437,6 @@ function animate() {
           spinFromY = spinGroup.rotation.y;
           spinFromZ = spinGroup.rotation.z;
 
-          // 「ロード時相当（0と同姿勢）」へ、通常回転と同方向になるように to を選ぶ
-          // const signY = Math.sign(RotPreset.NORMAL.y) || 1;
-          // const signZ = Math.sign(RotPreset.NORMAL.z) || 1;
-          // spinToY = pickEndAngleWithDirection(spinFromY, 0, signY);
-          // spinToZ = pickEndAngleWithDirection(spinFromZ, 0, signZ);
           const signY = 1; // RotPreset.NORMAL.y が正なら固定でもOK
           const signZ = 1;
 

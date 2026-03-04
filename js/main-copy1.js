@@ -8,17 +8,16 @@ const viewer = document.getElementById("three-canvas2");
 const modelUrl = viewer.dataset.modelUrl;
 const itemType = viewer.dataset.modelType;
 
-function dataCheck() {
-  if (!viewer) return;
-  if (!modelUrl) {
-    console.error("URLが取得できてません")
-  }
-  if (!itemType) {
-    console.error("タグにアクセサリー種類が指定されていません")
-  }
-  console.log(itemType)
-}
-
+// function dataCheck() {
+//   if (!viewer) return;
+//   if (!modelUrl) {
+//     console.error("URLが取得できてません")
+//   }
+//   if (!itemType) {
+//     console.error("タグにアクセサリー種類が指定されていません")
+//   }
+//   console.log(itemType)
+// }
 function setType (itemType) {
   switch(itemType) {
     case type.RING:
@@ -29,14 +28,40 @@ function setType (itemType) {
         
     case type.BANGLE_EX_BOLD:
       return type.BANGLE_EX_BOLD;
-      
-    default:
-      return type.BANGLE_LIGHT;
   }
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+  document
+    .querySelectorAll(".three-canvas-simple1")
+    .forEach(canvas => {
+      initSimpleViewer(
+        canvas,
+        canvas.dataset.modelUrl,
+        canvas.dataset.modelType
+      );
+    });
+});
+
+// function setType (itemType) {
+//   switch(itemType) {
+//     case type.RING:
+//       return type.RING;
+
+//     case type.BANGLE_BOLD:
+//       return type.BANGLE_BOLD;
+        
+//     case type.BANGLE_EX_BOLD:
+//       return type.BANGLE_EX_BOLD;
+      
+//     default:
+//       return type.BANGLE_LIGHT;
+//   }
+// }
+
+function initSimpleViewer(canvas, modelUrl, modelType) {
 // Variables: 変数
-const canvas = document.getElementById('three-canvas2');
+// const canvas = document.getElementById('three-canvas2');
 const canvasWidth = 500;
 const canvasheight = 500;
 const clock = new THREE.Clock();
@@ -143,7 +168,7 @@ const type = {
   BANGLE_LIGHT: "bangle_light",
 }
 
-const modelType = setType(itemType);
+// const modelType = setType(itemType);
 
 // model: モデル
 const loader = new GLTFLoader();
@@ -156,20 +181,7 @@ let spinGroup = null;      // 回転専用
 let correctionGroup = null;// 初期補正→0戻し専用
 const MODEL_INITIAL_ROT_X = modelType == type.RING ? Math.PI / 2 : -Math.PI / 2; // 初期向き(-90度上向き)
 const MODEL_INITIAL_ROT_Z = Math.PI; // 左右反転 180
-
-// ===== 補正解除（戻し）を“どっち回り”にするか制御するためのヘルパ =====
-// start -> end(同じ姿勢) へ戻す時、end に 2π を足し引きして「回転方向」を揃える
-function pickEndAngleWithDirection(start, end, preferredSign = 1) {
-  const TWO_PI = Math.PI * 2;
-  // 角度差を [-π, π] に折りたたむ（最短差）
-  const shortestDelta = THREE.MathUtils.euclideanModulo((end - start) + Math.PI, TWO_PI) - Math.PI;
-
-  // 最短差の向きが希望と逆なら、同じ姿勢になる ±2π 側へ回す（= 長回り）
-  if (Math.sign(shortestDelta) !== 0 && Math.sign(shortestDelta) !== Math.sign(preferredSign)) {
-    return end + TWO_PI * Math.sign(preferredSign);
-  }
-  return end;
-}
+const CAMERA_DISTANCE_MULTIPLIER = modelType == type.RING ? 15 : 5.2;
 
 // モデル状態
 // ズーム1: 左から右へ表面をなぞるようなズーム
@@ -186,6 +198,36 @@ const zoomStatu = {
   // ズームアウト（通常時へ）
   ZOOM_RETURN_DEFAULT: "zoom_return_defualt"
 };
+
+const CyclePhase = {
+  HOLD_LOAD: "HOLD_LOAD",
+  UNWIND: "UNWIND",
+  RUN: "RUN",
+  RETURN_LOAD: "RETURN_LOAD",
+  RETURN_SPIN: "RETURN_SPIN",
+  RETURN_CORR: "RETURN_CORR",
+};
+
+// ===== 周回（サイクル）制御 =====
+// 周回の大きな流れ：
+// HOLD_LOAD(停止) → UNWIND(補正解除) → RUN(回転+ズーム一巡) → RETURN_LOAD(ロード時へ戻す) → HOLD_LOAD...
+
+const HOLD_SECONDS   = 1.0; // ロード時姿勢で止める秒数
+const UNWIND_SECONDS = 2.0; // ロード時姿勢 → 0姿勢（補正解除）にかける秒数
+const RETURN_SECONDS = 2.8; // 0姿勢 → ロード時姿勢に戻す秒数
+
+let cyclePhase = "HOLD_LOAD";     // "HOLD_LOAD" | "UNWIND" | "RUN" | "RETURN_LOAD"
+let holdRemaining = HOLD_SECONDS; // 停止用カウントダウン（秒）
+let cycleJustCompleted = false;   // 1セット（ズーム一巡）完了を示すフラグ
+
+// RETURN_LOAD の補間進行度（0→1）
+let returnT = 0;
+
+// RETURN_LOAD 開始時に「補間の開始値/目標値」を固定するための変数
+let spinFromY = 0, spinToY = 0;
+let spinFromZ = 0, spinToZ = 0;
+let corrFromX = 0, corrToX = 0;
+let corrFromZ = 0, corrToZ = 0;
 
 // ターンスピード
 const turnSpeed = {
@@ -216,44 +258,6 @@ function captureDefaultView(camera) {
   defaultView.pos.copy(camera.position);
   defaultView.quat.setFromEuler(new THREE.Euler(0, 0, 0, "XYZ")).normalize();
 }
-
-// ================================
-// 周回制御（1セットごとにロード時姿勢へ戻して停止→再開）
-// ================================
-
-// フェーズ定義（文字列でもOK。慣れたら定数化しても良い）
-const CyclePhase = {
-  HOLD_LOAD: "HOLD_LOAD",
-  UNWIND: "UNWIND",
-  RUN: "RUN",
-  RETURN_SPIN: "RETURN_SPIN",
-  RETURN_CORR: "RETURN_CORR",
-};
-
-// 時間パラメータ（あとで調整しやすいように定数に）
-const HOLD_SECONDS = 1.0;     // ロード時姿勢で止める秒数
-const UNWIND_SECONDS = 2.0;   // 補正解除（ロード姿勢→0姿勢）にかける秒数
-const RETURN_SECONDS = 2.0;   // ロード姿勢へ戻す秒数
-
-// 現在の周回フェーズ
-let cyclePhase = CyclePhase.HOLD_LOAD;
-
-// 「停止残り時間」：0より大きい間は止める
-let holdRemaining = HOLD_SECONDS;
-
-// 「1セット（ズーム一巡）完了」フラグ（zoomOut完了時にtrueにする予定）
-let cycleJustCompleted = false;
-
-// RETURN_LOAD 用：補間元(from)と補間先(to)を“開始時に固定”するための変数
-let returnT = 0; // RETURN_LOADの進行度 [0..1]
-
-// spinGroup 用
-let spinFromY = 0, spinToY = 0;
-let spinFromZ = 0, spinToZ = 0;
-
-// correctionGroup 用
-let corrFromX = 0, corrToX = 0;
-let corrFromZ = 0, corrToZ = 0;
 
 loader.load( 
   modelUrl, // url
@@ -299,6 +303,7 @@ function setupModelBase(model, camera) {
   const defaultPos = center.clone().add(new THREE.Vector3(0, 0, radius * CAMERA_DISTANCE_MULTIPLIER)); // カメラのポジション指定
   camera.position.copy(defaultPos); // ポジションにセット
   camera.lookAt(center);
+  cameraTarget.copy(center);
 
   return { center, radius, defaultPos };
 } 
@@ -326,15 +331,6 @@ const RotPreset = {
   }
 };
 
-// 通常回転（spinGroup）の回転方向に、補正解除（戻し）の回転方向も合わせる
-const PREFERRED_UNWIND_SIGN_Z = Math.sign(RotPreset?.NORMAL?.z ?? turnSpeed.BASE) || 1;
-const PREFERRED_UNWIND_SIGN_X = 1; // Xは見た目に影響しづらいので固定でOK（必要なら調整）
-
-// 「0度」と同じ姿勢の別表現（2πなど）を使って、戻しの回転方向を揃える
-const CORRECTION_END_X = pickEndAngleWithDirection(MODEL_INITIAL_ROT_X, 0, PREFERRED_UNWIND_SIGN_X);
-const CORRECTION_END_Z = pickEndAngleWithDirection(MODEL_INITIAL_ROT_Z, 0, PREFERRED_UNWIND_SIGN_Z);
-const CAMERA_DISTANCE_MULTIPLIER = modelType == type.RING ? 15 : 5.2;
-
 // 回転制御
 function getRotationSpeedByMode(mode) {
   switch (mode) {
@@ -351,14 +347,38 @@ function getRotationSpeedByMode(mode) {
   }
 }
 
+function pickEndAngleWithDirection(start, end, preferredSign = 1) {
+  const TWO_PI = Math.PI * 2;
+
+  const shortestDelta =
+    THREE.MathUtils.euclideanModulo((end - start) + Math.PI, TWO_PI) - Math.PI;
+
+  if (Math.sign(shortestDelta) !== 0 &&
+      Math.sign(shortestDelta) !== Math.sign(preferredSign)) {
+    return end + TWO_PI * Math.sign(preferredSign);
+  }
+
+  return end;
+}
+
+const PREFERRED_UNWIND_SIGN_Z = Math.sign(RotPreset?.NORMAL?.z ?? turnSpeed.BASE) || 1;
+const PREFERRED_UNWIND_SIGN_X = 1; // Xは見た目に影響しづらいので固定でOK（必要なら調整）
+
+// 「0度」と同じ姿勢の別表現（2πなど）を使って、戻しの回転方向を揃える
+const CORRECTION_END_X = pickEndAngleWithDirection(MODEL_INITIAL_ROT_X, 0, PREFERRED_UNWIND_SIGN_X);
+const CORRECTION_END_Z = pickEndAngleWithDirection(MODEL_INITIAL_ROT_Z, 0, PREFERRED_UNWIND_SIGN_Z);
+
+let zoomGateEnabled = false;
+let runYawSinceStart = 0;
+const RUN_GATE_YAW = THREE.MathUtils.degToRad(20);
 // debag
 // const controls = new OrbitControls(camera, canvas);
 // controls.enableDamping = true; // 慣性を有効にする(操作を滑らかにするやつ)
 // controls.dampingFactor = 0.08;// 慣性の減衰係数
 
-window.addEventListener("load", () => {
-  dataCheck();
-})
+// window.addEventListener("load", () => {
+//   dataCheck();
+// })
 
 function animate() {
   renderer.render(scene, camera);
@@ -366,223 +386,113 @@ function animate() {
   // controls.update(); // debag
 
   const delta = clock.getDelta(); // 前回のこの処理からの時間を取得
-  const elapsed = (performance.now() - loadTime) * 0.001;
 
   if (modelRoot) {
-    if (holdRemaining > 0) {
-      holdRemaining = Math.max(0, holdRemaining - delta);
-      return;
-    } 
-
-    // 停止が終わったら UNWIND に入る
-    if (cyclePhase === CyclePhase.HOLD_LOAD) {
-      cyclePhase = CyclePhase.UNWIND;
-      t = 0; // UNWIND進行度リセット
-    }
-
-    // ==========================
-    // (C) UNWIND：ロード時姿勢 → 0姿勢（補正解除）
-    // ==========================
-    if (cyclePhase === CyclePhase.UNWIND) {
-      t += delta / UNWIND_SECONDS;
-      t = Math.min(t, 1);
-
-      // 既にあなたが動作確認済みの補正解除（lerp）
-      correctionGroup.rotation.x = THREE.MathUtils.lerp(MODEL_INITIAL_ROT_X, CORRECTION_END_X, t);
-      correctionGroup.rotation.z = THREE.MathUtils.lerp(MODEL_INITIAL_ROT_Z, CORRECTION_END_Z, t);
-
-      if (t >= 1) {
-        cyclePhase = CyclePhase.RUN; // 補正解除が終わったらRUNへ
+    switch (cyclePhase) {
+      case CyclePhase.HOLD_LOAD: {
+        cyclePhase = handleHoldLoad(delta);
+        return;
       }
-      return; // ←重要：UNWIND中は回転もズームも走らせない
-    }
-
-    // ==========================
-    // (D) RETURN_LOAD：0姿勢 → ロード時姿勢へ戻す
-    // ==========================
-    if (cyclePhase === CyclePhase.RETURN_LOAD) {
-      returnT += delta / RETURN_SECONDS;
-      returnT = Math.min(returnT, 1);
-
-      // spinGroup をロード時（spin=0相当）へ戻す
-      spinGroup.rotation.y = THREE.MathUtils.lerp(spinFromY, spinToY, returnT);
-      spinGroup.rotation.z = THREE.MathUtils.lerp(spinFromZ, spinToZ, returnT);
-
-      // correctionGroup をロード時（初期補正）へ戻す
-      correctionGroup.rotation.x = THREE.MathUtils.lerp(corrFromX, corrToX, returnT);
-      correctionGroup.rotation.z = THREE.MathUtils.lerp(corrFromZ, corrToZ, returnT);
-
-      // 戻し完了 → 1秒停止へ
-      if (returnT >= 1) {
-        cyclePhase = CyclePhase.HOLD_LOAD;
-        holdRemaining = HOLD_SECONDS;
-
-        // 次周回の準備（ここは最低限）
-        t = 0;                 // 次のUNWIND用
-        returnT = 0;           // 念のため戻す
-        mode = zoomStatu.ZOOM_IDLE;
-        nextZoomType = ZoomType.SWEEP;
-        frontGate.armed = true;
-
-        // ズームの文脈もリセット（ズーム途中の残りがあると事故る）
-        zoomCtx.inited = false;
-        zoomCtx.lookAtCenterEnabled = false;
+      
+      case CyclePhase.UNWIND: {  // 初期状態から正面へ戻す
+        t += delta / UNWIND_SECONDS;
+        t = Math.min(t, 1);
+  
+        correctionGroup.rotation.x = THREE.MathUtils.lerp(MODEL_INITIAL_ROT_X, CORRECTION_END_X, t);
+        correctionGroup.rotation.z = THREE.MathUtils.lerp(MODEL_INITIAL_ROT_Z, CORRECTION_END_Z, t);
+  
+        if (t >= 1) {
+          cyclePhase = CyclePhase.RUN;
+          zoomGateEnabled = false;
+          runYawSinceStart = 0;
+        }
+        return;
       }
 
-      return; // ←重要：RETURN_LOAD中はRUNさせない
-    }
+      case CyclePhase.RUN: {
+        const rot = getRotationSpeedByMode(mode);
+        spinGroup.rotation.y += rot.y;
+        spinGroup.rotation.z += rot.z;
 
-    if (cyclePhase === CyclePhase.RETURN_SPIN) {
-      returnT += delta / RETURN_SECONDS;
-      returnT = Math.min(returnT, 1);
+        if (!zoomGateEnabled) { // 初回だけズームを実施しない
+          runYawSinceStart += Math.abs(rot.y);
+          if (runYawSinceStart >= RUN_GATE_YAW) zoomGateEnabled = true;
+        }
+        // console.log(mode); // debag
+        switch (mode) {
+          case zoomStatu.ZOOM_SWEEP_IN:
+            zoomCtx.lookAtCenterEnabled = true;
+            zoomIn(delta, camera, presets.sweep.pos, camera.fov, zoomCtx.holdDuration);
+            break;
 
-      // spinGroup だけ戻す
-      spinGroup.rotation.y = THREE.MathUtils.lerp(spinFromY, spinToY, returnT);
-      spinGroup.rotation.z = THREE.MathUtils.lerp(spinFromZ, spinToZ, returnT);
+          case zoomStatu.ZOOM_SWEEP_ACTIVE:
+            zoomSweepActive(delta, camera, presets.active.pos);
+            nextZoomType = ZoomType.SPOT;
+            break;
 
-      if (returnT >= 1) {
-        // 次は correction を戻す
-        cyclePhase = CyclePhase.RETURN_CORR;
-        returnT = 0;
+          case zoomStatu.ZOOM_SPOT_IN:
+            zoomIn(delta, camera, presets.spot.pos, camera.fov, zoomCtx.holdDuration);
+            break;
 
-        // correction の from/to をここで固定（この瞬間の値で確定）
-        corrFromX = correctionGroup.rotation.x;
-        corrFromZ = correctionGroup.rotation.z;
+          case zoomStatu.ZOOM_SPOT_HOLD:
+            zoomSpotHold(delta);
+            nextZoomType = ZoomType.SWEEP;
+            break;
 
-        // ★ここが重要：correction の戻し方向を “意図した方向” に揃える
-        // いままでの PREFERRED_UNWIND_SIGN_* を使うのがシンプル
-        corrToX = pickEndAngleWithDirection(corrFromX, MODEL_INITIAL_ROT_X, PREFERRED_UNWIND_SIGN_X);
-        corrToZ = pickEndAngleWithDirection(corrFromZ, MODEL_INITIAL_ROT_Z, PREFERRED_UNWIND_SIGN_Z);
+          case zoomStatu.ZOOM_RETURN_DEFAULT:
+            zoomOut(delta, camera, zoomCtx.holdDuration);
+            break;
+
+          default:
+            if (zoomGateEnabled) {
+              if (shouldTriggerZoom(modelRoot, nextZoomType)) {
+                mode = (nextZoomType === ZoomType.SPOT) // ズームの切り替え
+                  ? zoomStatu.ZOOM_SPOT_IN
+                  : zoomStatu.ZOOM_SWEEP_IN;
+              }
+            }
+        }
+
+        // --- 1セット完了を検知したら、戻しフェーズへ ---
+        if (cycleJustCompleted && mode === zoomStatu.ZOOM_IDLE) {
+          cycleJustCompleted = false;       // 多重発火防止
+          returnT = 0;
+
+          // まずは SPIN を戻す（親）
+          spinFromY = spinGroup.rotation.y;
+          spinFromZ = spinGroup.rotation.z;
+
+          const signY = 1; // RotPreset.NORMAL.y が正なら固定でもOK
+          const signZ = 1;
+
+          spinToY = pickEquivalentAngleSameDirection(spinFromY, 0, signY);
+          spinToZ = pickEquivalentAngleSameDirection(spinFromZ, 0, signZ);
+
+          cyclePhase = CyclePhase.RETURN_SPIN;
+
+          console.log("[phase] RUN -> RETURN_SPIN", {
+            spinFromY, spinToY, spinFromZ, spinToZ, signY, signZ
+          });
+          return;
+        }
+        return;
       }
 
-      return;
-    }
-
-    if (cyclePhase === CyclePhase.RETURN_CORR) {
-      returnT += delta / RETURN_SECONDS;
-      returnT = Math.min(returnT, 1);
-
-      // correctionGroup だけ戻す
-      correctionGroup.rotation.x = THREE.MathUtils.lerp(corrFromX, corrToX, returnT);
-      correctionGroup.rotation.z = THREE.MathUtils.lerp(corrFromZ, corrToZ, returnT);
-
-      if (returnT >= 1) {
-        // 戻し完了 → 1秒停止へ
-        cyclePhase = CyclePhase.HOLD_LOAD;
-        holdRemaining = HOLD_SECONDS;
-
-        // 次周回準備
-        t = 0;
-        returnT = 0;
-        mode = zoomStatu.ZOOM_IDLE;
-        nextZoomType = ZoomType.SWEEP;
-        frontGate.armed = true;
-
-        zoomCtx.inited = false;
-        zoomCtx.lookAtCenterEnabled = false;
+      case CyclePhase.RETURN_SPIN: {
+        handleReturnSpin(delta);
+        return;
       }
 
-      return;
-    }
-
-    // ズーム中のカメラ設定
-    // const isZooming = (
-    //   mode === zoomStatu.ZOOM_SPOT_IN ||
-    //   mode === zoomStatu.ZOOM_SPOT_HOLD
-    // );
-    // zoomLight.visible = isZooming;
-    // if (isZooming) {
-    //   const forward = new THREE.Vector3();
-    //   camera.getWorldDirection(forward);
-    //   zoomLight.position.copy(camera.position).add(forward.multiplyScalar(0.25));
-    // }
-
-    // if (t < 1) {
-    //   t += delta / 2;
-    //   t = Math.min(t, 1);
-
-    //   // 角度を線形補間して「補正解除」する（0度と同じ姿勢の 2π 側へ戻すことで回転方向を揃えられる）
-    //   correctionGroup.rotation.x = THREE.MathUtils.lerp(MODEL_INITIAL_ROT_X, CORRECTION_END_X, t);
-    //   correctionGroup.rotation.z = THREE.MathUtils.lerp(MODEL_INITIAL_ROT_Z, CORRECTION_END_Z, t);
-    // } else {
-
-    const rot = getRotationSpeedByMode(mode);
-    spinGroup.rotation.y += rot.y;
-    spinGroup.rotation.z += rot.z;
-    // console.log(mode); // debag
-    switch (mode) {
-      case zoomStatu.ZOOM_SWEEP_IN:
-        zoomCtx.lookAtCenterEnabled = true;
-        zoomIn(delta, camera, presets.sweep.pos, camera.fov, zoomCtx.holdDuration);
-        break;
-
-      case zoomStatu.ZOOM_SWEEP_ACTIVE:
-        zoomSweepActive(delta, camera, presets.active.pos);
-        nextZoomType = ZoomType.SPOT;
-        break;
-
-      case zoomStatu.ZOOM_SPOT_IN:
-        zoomIn(delta, camera, presets.spot.pos, camera.fov, zoomCtx.holdDuration);
-        break;
-
-      case zoomStatu.ZOOM_SPOT_HOLD:
-        zoomSpotHold(delta);
-        nextZoomType = ZoomType.SWEEP;
-        break;
-
-      case zoomStatu.ZOOM_RETURN_DEFAULT:
-        zoomOut(delta, camera, zoomCtx.holdDuration);
-        break;
+      case CyclePhase.RETURN_CORR: {
+        handleReturnCorr(delta);
+        return;
+      }
 
       default:
-        if (shouldTriggerZoom(modelRoot, nextZoomType)) {
-          mode = (nextZoomType === ZoomType.SPOT) // ズームの切り替え
-            ? zoomStatu.ZOOM_SPOT_IN
-            : zoomStatu.ZOOM_SWEEP_IN;
-        }
-    }
-    // ==========================
-    // (RUNの末尾) 1セット完了 → RETURN_LOAD 開始準備
-    // ==========================
-    if (cyclePhase === CyclePhase.RUN && cycleJustCompleted && mode === zoomStatu.ZOOM_IDLE) {
-      // 再入防止（次フレーム以降に何度も入らないように）
-      cycleJustCompleted = false;
-
-      // RETURN_LOAD の補間を開始
-      cyclePhase = CyclePhase.RETURN_SPIN;
-      returnT = 0;
-
-      // ---- from（開始値）を固定 ----
-      spinFromY = spinGroup.rotation.y;
-      spinFromZ = spinGroup.rotation.z;
-
-      corrFromX = correctionGroup.rotation.x;
-      corrFromZ = correctionGroup.rotation.z;
-
-      // 回転方向（符号）を RUN と同じにする
-      const rotNow = getRotationSpeedByMode(mode);
-      const fallbackY = Math.sign(RotPreset?.NORMAL?.y ?? 1) || 1;
-      const fallbackZ = Math.sign(RotPreset?.NORMAL?.z ?? 1) || 1;
-      const signY = -(Math.sign(rotNow.y) || fallbackY);
-      const signZ = -(Math.sign(rotNow.z) || fallbackZ);
-
-      // from（spin）固定
-      spinFromY = spinGroup.rotation.y;
-      spinFromZ = spinGroup.rotation.z;
-
-      // to（spin）固定：0に戻すが、方向は signY/signZ に合わせる
-      spinToY = pickEndAngleWithDirection(spinFromY, 0, signY);
-      spinToZ = pickEndAngleWithDirection(spinFromZ, 0, signZ);
-
-      console.log("spinToY", spinToY)
-      console.log("spinToZ", spinToZ)
-      console.log("signY", signY)
-      console.log("signZ", signZ)
-      console.log("spinToY", spinToY)
+        break;
     }
   }
 }
-
 
 const presets = getCameraPresetsByModelType(modelType);
 animate();
@@ -843,7 +753,7 @@ function zoomOut(delta, camera, duration) {
     zoomCtx.lookAtCenterEnabled = false;
     zoomCtx.inited = false;
     mode = zoomStatu.ZOOM_IDLE;
-  
+    
     if (nextZoomType === ZoomType.SWEEP) {
       cycleJustCompleted = true;
     }
@@ -873,3 +783,84 @@ function zoomSpotHold(delta, holdSeconds = 2.0) {
   return mode;
 }
 
+function handleHoldLoad(delta) {
+  holdRemaining = Math.max(0, holdRemaining - delta); // holdRemaining(1秒) - delta(前回の処理からの時間)を計算して0になったら1秒経ったことになる。
+  if (holdRemaining === 0) return CyclePhase.UNWIND;
+  return CyclePhase.HOLD_LOAD;
+}
+
+function handleReturnSpin(delta) {
+  returnT = Math.min(1, returnT + delta / RETURN_SECONDS);
+
+  spinGroup.rotation.y = THREE.MathUtils.lerp(spinFromY, spinToY, returnT);
+  spinGroup.rotation.z = THREE.MathUtils.lerp(spinFromZ, spinToZ, returnT);
+
+  if (returnT >= 1) {
+    returnT = 0;
+    corrFromX = correctionGroup.rotation.x;
+    corrFromZ = correctionGroup.rotation.z;
+
+    corrToX = pickEquivalentAngleSameDirection(corrFromX, MODEL_INITIAL_ROT_X, -1);
+    corrToZ = pickEquivalentAngleSameDirection(corrFromZ, MODEL_INITIAL_ROT_Z, 1);
+    
+    console.log("[phase] RETURN_SPIN -> RETURN_CORR", {
+      corrFromX, corrToX, corrFromZ, corrToZ
+    });
+    cyclePhase = CyclePhase.RETURN_CORR;
+  }
+}
+
+function handleReturnCorr(delta) {
+  // 進行度 0→1
+  returnT = Math.min(1, returnT + delta / UNWIND_SECONDS);
+
+  // 子（correctionGroup）をロード時補正へ戻す
+  correctionGroup.rotation.x = THREE.MathUtils.lerp(corrFromX, corrToX, returnT);
+  correctionGroup.rotation.z = THREE.MathUtils.lerp(corrFromZ, corrToZ, returnT);
+
+  // 完了したら後処理へ
+  if (returnT >= 1) {
+    returnT = 0;
+    t = 0;
+
+    // 「ロード時姿勢で1秒停止」に戻す
+    cyclePhase = CyclePhase.HOLD_LOAD;
+    holdRemaining = HOLD_SECONDS;
+
+    // 次周回に向けてズーム関連を初期化
+    mode = zoomStatu.ZOOM_IDLE;
+    nextZoomType = ZoomType.SWEEP;
+
+    // 既存がある前提（なければ削除OK）
+    frontGate.armed = true;
+
+    // ズーム内部状態（存在するなら）
+    zoomCtx.inited = false;
+    zoomCtx.lookAtCenterEnabled = false;
+
+    // ゲート方式を使っているなら（使ってる場合だけ有効化）
+    zoomGateEnabled = false;
+    runYawSinceStart = 0;
+
+    console.log("[phase] RETURN_CORR -> HOLD_LOAD");
+  }
+}
+
+const TAU = Math.PI * 2;
+
+// current(今の角)から見て、targetBase(0など)と同じ姿勢の角度を
+// 回転方向 sign(+1/-1) に沿って “次に到達する値” として返す
+function pickEquivalentAngleSameDirection(current, targetBase, sign) {
+  let t = targetBase;
+
+  // t を current の近く（同じ周回数帯）に寄せる
+  const k = Math.floor((current - t) / TAU);
+  t += k * TAU;
+
+  // sign方向に「次」の同値角へ
+  if (sign > 0 && t < current) t += TAU;
+  if (sign < 0 && t > current) t -= TAU;
+
+  return t;
+}
+}
