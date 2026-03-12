@@ -103,3 +103,7 @@ body {
         align-items: flex-start;
     }
 }
+
+.divbox__inner {
+    display: flex;
+}
