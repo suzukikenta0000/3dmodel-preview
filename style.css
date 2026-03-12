@@ -20,30 +20,10 @@
   align-items: center;
 }
 
-.title {
-    color: #fff;
-    font-size: 3rem;
-    font-family: 'Times New Roman', Times, serif;
-    text-align: center;
-    margin: 20px 0;
-}
 
-section {
-    margin: 0 auto;
-    max-width: 960px;
-    width: 100%;
-}
-.dl_flex {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 40px;
-    margin: 24px 40px 0;
-}
-
-.dl_flex > * {
-    color: #ffffff;
-}
-
+/*****************************
+    修正
+*****************************/
 
 body {
     margin: 0;
@@ -52,58 +32,50 @@ body {
     font-family: Arial, sans-serif;
 }
 
-.dmodel-view-box {
+.model-viewer > * {
+    margin: 0;
+    padding: 0;
+}
+
+.font-color {
+    color: #fff;
+}
+.model-viewer {
+    padding-top: 80px;
+}
+.model-viewer__title {
+    text-align: center;
+    font-size: 3rem;
+    margin-bottom: 40px;
+}
+
+.model-viewer__inner {
     max-width: 1280px;
     width: 90%;
     margin: 0 auto;
+}
+
+.model-viewer__section-title {
+    text-align: center;
+}
+
+.model-viewer__conteiner {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    background-color: #101010;
-    color: #fff;
-    padding: 32px 0;
+    gap: 80px;
+    max-width: 1280px;
+    justify-content: center;
 }
 
-.border-top {
-    border-top: 1px solid #909090;
-    max-width: 1200px;
+@media screen and (max-width: 749px) {    
+    .model-viewer__conteiner {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
 }
 
-.model-3d {
-    max-width: 500px;
-}
-
-.model {
-    min-width: 500px;
+.model-viewer__canvas {
     height: 500px;
+    width: 500px;
 }
 
-.product-img {
-    max-width: 500px;
-    max-height: 500px;
-}
-
-.product-text-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    max-width: 500px;
-    gap: 40px;
-}
-
-@media screen and (min-width: 769px) {
-    .dmodel-view-box {
-        flex-direction: row;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 40px;
-    }
-    
-    .product-text-box {
-        align-items: flex-start;
-    }
-}
-
-.divbox__inner {
-    display: flex;
-}

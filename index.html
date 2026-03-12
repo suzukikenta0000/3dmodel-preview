@@ -11,7 +11,6 @@
 </head>
 
 <body>
-    <h1 class="title">3D model</h1>    
     <!--
         ========== メモ ===========
         こちらは <model-viewer> のサンプルです。
@@ -27,147 +26,102 @@
         environment-image="shimadasama/3dmodel/Untitled.hdr" exposure="2.5">  // 環境マップと露出を指定(ライト効果)
     </model-viewer>
     -->
-<section>
-
-    <div class="divbox">
-
-        <div class="divbox__inner">
-            <dl class="dl_flex">
-                <!-- <div class="dl_flex-item">
-                    <dt>type：</dt>
-                    <dd>bangle / bold</dd>
-                </div> -->
-                <div class="dl_flex-item">
-                    <dt>color：</dt>
-                    <dd>glod-24金 (old)</dd>
+<section class="model-viewer">
+    <h1 class="model-viewer__title font-color">3D model</h1>  
+    
+    <section class="model-viewer__inner">
+        <h2 class="model-viewer__section-title font-color">light-glod-24金</h2>
+        <div class="model-viewer__conteiner">
+            <div class="model-viewer__box">
+                <div class="subtitle font-color">修正前</div>
+                <div class="model-viewer__canvas">
+                    <canvas 
+                    id="three-canvas2"
+                    class="three-canvas-simple1"
+                    data-model-url="shimadasama/complate/old/light-gold24_clrea.glb"
+                    data-model-type="bangle_light"
+                    ></canvas>
                 </div>
-            </dl>
-            <canvas 
-            id="three-canvas2"
-            class="three-canvas-simple1"
-            data-model-url="shimadasama/complate/old/light-gold24_clrea.glb"
-            data-model-type="bangle_light"
-            ></canvas>
-            
-            <dl class="dl_flex">
-                <!-- <div class="dl_flex-item">
-                    <dt>type：</dt>
-                    <dd>ring</dd>
-                </div> -->
-                <div class="dl_flex-item">
-                    <dt>color：</dt>
-                    <dd>glod-24金</dd>
+            </div>
+
+            <div class="model-viewer__box">
+                <div class="subtitle font-color">修正後</div>
+                <div class="model-viewer__canvas">
+                    <canvas
+                    id="three-canvas3"
+                    class="three-canvas-simple1"
+                    data-model-url="shimadasama/complate/light-gold24_clrea.glb"
+                    data-model-type="bangle_light"
+                    ></canvas>
                 </div>
-            </dl>
-            <canvas
-            id="three-canvas3"
-            class="three-canvas-simple1"
-            data-model-url="shimadasama/complate/light-gold24_clrea.glb"
-            data-model-type="bangle_light"
-            ></canvas>
+            </div>
+
         </div>
+    </section>
     
-        <!-- <dl class="dl_flex">
-            <div class="dl_flex-item">
-                <dt>type：</dt>
-                <dd>bangle / EX_bold</dd>
+    <section class="model-viewer__inner">
+        <h2 class="model-viewer__section-title font-color">light-glod-10金</h2>
+        <div class="model-viewer__conteiner">
+            <div class="model-viewer__box">
+                <div class="subtitle font-color">修正前</div>
+                <div class="model-viewer__canvas">
+                    <canvas 
+                    id="three-canvas2"
+                    class="three-canvas-simple1"
+                    data-model-url="shimadasama/complate/old/light-gold10.glb"
+                    data-model-type="bangle_light"
+                    ></canvas>
+                </div>
             </div>
-            <div class="dl_flex-item">
-                <dt>color：</dt>
-                <dd>silver</dd>
+
+            <div class="model-viewer__box">
+                <div class="subtitle font-color">修正後</div>
+                <div class="model-viewer__canvas">
+                    <canvas
+                    id="three-canvas3"
+                    class="three-canvas-simple1"
+                    data-model-url="shimadasama/complate/light-gold10.glb"
+                    data-model-type="bangle_light"
+                    ></canvas>
+                </div>
             </div>
-        </dl>
-        <canvas
-        id="three-canvas4"
-        class="three-canvas-simple1"
-        data-model-url="shimadasama/complate/EX-bold-silver.glb"
-        data-model-type="bangle_ex_bold"
-        ></canvas> -->
+
+        </div>
+    </section>
     
-        <!-- <dl class="dl_flex">
-            <div class="dl_flex-item">
-                <dt>type：</dt>
-                <dd>bangle / light</dd>
+    <section class="model-viewer__inner">
+        <h2 class="model-viewer__section-title font-color">light-bitter-gold & light-silver</h2>
+        <div class="model-viewer__conteiner">
+            <div class="model-viewer__box">
+                <div class="subtitle font-color">bitter-gold</div>
+                <div class="model-viewer__canvas">
+                    <canvas 
+                    id="three-canvas2"
+                    class="three-canvas-simple1"
+                    data-model-url="shimadasama/complate/light-brack.glb"
+                    data-model-type="bangle_light"
+                    ></canvas>
+                </div>
             </div>
-            <div class="dl_flex-item">
-                <dt>color：</dt>
-                <dd>silver</dd>
+
+            <div class="model-viewer__box">
+                <div class="subtitle font-color">silver</div>
+                <div class="model-viewer__canvas">
+                    <canvas
+                    id="three-canvas3"
+                    class="three-canvas-simple1"
+                    data-model-url="shimadasama/complate/light-silver.glb"
+                    data-model-type="bangle_light"
+                    ></canvas>
+                </div>
             </div>
-        </dl>
-        <canvas
-        class="three-canvas-simple1"
-        data-model-url="shimadasama/complate/light-silver.glb"
-        data-model-type="bangle"
-        ></canvas> -->
-        
-        <!-- <dl class="dl_flex">
-            <div class="dl_flex-item">
-                <dt>type：</dt>
-                <dd>bangle / light</dd>
-            </div>
-            <div class="dl_flex-item">
-                <dt>color：</dt>
-                <dd>gold24 金</dd>
-            </div>
-        </dl>
-        <canvas
-        class="three-canvas-simple1"
-        data-model-url="shimadasama/complate/light-gold24.glb"
-        data-model-type="bangle"
-        ></canvas> -->
-    
-        <!-- <dl class="dl_flex">
-            <div class="dl_flex-item">
-                <dt>type：</dt>
-                <dd>bangle / light</dd>
-            </div>
-            <div class="dl_flex-item">
-                <dt>color：</dt>
-                <dd>gold18 金</dd>
-            </div>
-        </dl>
-        <canvas
-        class="three-canvas-simple1"
-        data-model-url="shimadasama/complate/light-gold18.glb"
-        data-model-type="bangle"
-        ></canvas> -->
-        
-        <!-- <dl class="dl_flex">
-            <div class="dl_flex-item">
-                <dt>type：</dt>
-                <dd>bangle / light</dd>
-            </div>
-            <div class="dl_flex-item">
-                <dt>color：</dt>
-                <dd>gold10 金</dd>
-            </div>
-        </dl>
-        <canvas
-        class="three-canvas-simple1"
-        data-model-url="shimadasama/complate/light-gold10.glb"
-        data-model-type="bangle"
-        ></canvas> -->
-        
-        <!-- <dl class="dl_flex">
-            <div class="dl_flex-item">
-                <dt>type：</dt>
-                <dd>bangle / light</dd>
-            </div>
-            <div class="dl_flex-item">
-                <dt>color：</dt>
-                <dd>bitter_gold</dd>
-            </div>
-        </dl>
-        <canvas
-        class="three-canvas-simple1"
-        data-model-url="shimadasama/complate/light-brack.glb"
-        data-model-type="bangle"
-        ></canvas> -->
-    
-        <!-- <script type="module" src="js/main.js"></script> -->
-        <script type="module" src="js/main-copy1.js"></script>
-    </div>
+
+        </div>
+    </section>
+
 </section>
+<!-- <script type="module" src="js/main.js"></script> -->
+<script type="module" src="js/main-copy1.js"></script>
 </body>
 
 </html>

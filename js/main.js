@@ -154,7 +154,7 @@ let mode = null; // 状態ステータス
 let modelRoot = null;      // sceneに載せるルート（spinGroup）
 let spinGroup = null;      // 回転専用
 let correctionGroup = null;// 初期補正→0戻し専用
-const MODEL_INITIAL_ROT_X = modelType == type.RING ? Math.PI / 2 : -Math.PI / 2; // 初期向き(-90度上向き)
+const MODEL_INITIAL_ROT_X = modelType == type.RING ? Math.PI / 2 : -Math.PI / 2; // 初期向き
 const MODEL_INITIAL_ROT_Z = Math.PI; // 左右反転 180
 const CAMERA_DISTANCE_MULTIPLIER = modelType == type.RING ? 15 : 5.2;
 
@@ -243,7 +243,7 @@ loader.load(
     correctionGroup = new THREE.Group();
 
     // 初期補正は「correctionGroup」に入れる
-    correctionGroup.rotation.x = MODEL_INITIAL_ROT_X; // 90度上向き
+    correctionGroup.rotation.x = MODEL_INITIAL_ROT_X;
     correctionGroup.rotation.z = MODEL_INITIAL_ROT_Z; // 180度反転したいなら Math.PI
 
     correctionGroup.add(model);
@@ -322,7 +322,7 @@ function getRotationSpeedByMode(mode) {
   }
 }
 
-function pickEndAngleWithDirection(start, end, preferredSign = 1) {
+function pickEndAngleWithDirection(start, end, preferredSign) {
   const TWO_PI = Math.PI * 2;
 
   const shortestDelta =
@@ -337,7 +337,7 @@ function pickEndAngleWithDirection(start, end, preferredSign = 1) {
 }
 
 const PREFERRED_UNWIND_SIGN_Z = Math.sign(RotPreset?.NORMAL?.z ?? turnSpeed.BASE) || 1;
-const PREFERRED_UNWIND_SIGN_X = 1; // Xは見た目に影響しづらいので固定でOK（必要なら調整）
+const PREFERRED_UNWIND_SIGN_X = modelType == type.RING ? 1 : -1; // Xは見た目に影響しづらいので固定でOK（必要なら調整）
 
 // 「0度」と同じ姿勢の別表現（2πなど）を使って、戻しの回転方向を揃える
 const CORRECTION_END_X = pickEndAngleWithDirection(MODEL_INITIAL_ROT_X, 0, PREFERRED_UNWIND_SIGN_X);
