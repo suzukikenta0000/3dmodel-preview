@@ -8,6 +8,7 @@ const viewer = document.getElementById("three-canvas2");
 const modelUrl = viewer.dataset.modelUrl;
 const itemType = viewer.dataset.modelType;
 
+
 // function dataCheck() {
 //   if (!viewer) return;
 //   if (!modelUrl) {
@@ -166,6 +167,15 @@ function initSimpleViewer(canvas, modelUrl, modelType) {
     BANGLE_EX_BOLD: "bangle_ex_bold",
     BANGLE_BOLD: "bangle_bold",
     BANGLE_LIGHT: "bangle_light",
+    BANGLE_LIGHT_24: "bangle_light_24",
+  }
+
+  const a = modelType == type.BANGLE_LIGHT_24 ? true : false;
+
+  if (a) {
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.5;
   }
 
   // const modelType = setType(itemType);
