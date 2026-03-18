@@ -170,9 +170,9 @@ function initSimpleViewer(canvas, modelUrl, modelType) {
     BANGLE_LIGHT_24: "bangle_light_24",
   }
 
-  const a = modelType == type.BANGLE_LIGHT_24 ? true : false;
+  const isBangleLight24 = modelType === type.BANGLE_LIGHT_24;
 
-  if (a) {
+  if (isBangleLight24) {
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.5;
@@ -357,7 +357,7 @@ function initSimpleViewer(canvas, modelUrl, modelType) {
     }
   }
 
-  function pickEndAngleWithDirection(start, end, preferredSign = 1) {
+  function pickEndAngleWithDirection(start, end, preferredSign) {
     const TWO_PI = Math.PI * 2;
 
     const shortestDelta =
@@ -473,7 +473,7 @@ function initSimpleViewer(canvas, modelUrl, modelType) {
             spinFromY = spinGroup.rotation.y;
             spinFromZ = spinGroup.rotation.z;
 
-            const signY = 1; // RotPreset.NORMAL.y が正なら固定でもOK
+            const signY = 1;
             const signZ = 1;
 
             spinToY = pickEquivalentAngleSameDirection(spinFromY, 0, signY);
@@ -811,8 +811,11 @@ function initSimpleViewer(canvas, modelUrl, modelType) {
       corrFromX = correctionGroup.rotation.x;
       corrFromZ = correctionGroup.rotation.z;
 
-      corrToX = pickEquivalentAngleSameDirection(corrFromX, MODEL_INITIAL_ROT_X, -1);
-      corrToZ = pickEquivalentAngleSameDirection(corrFromZ, MODEL_INITIAL_ROT_Z, 1);
+      const signX = modelType == type.RING ? 1 : -1;
+      const signZ = 1;
+
+      corrToX = pickEquivalentAngleSameDirection(corrFromX, MODEL_INITIAL_ROT_X, signX);
+      corrToZ = pickEquivalentAngleSameDirection(corrFromZ, MODEL_INITIAL_ROT_Z, signZ);
       
       console.log("[phase] RETURN_SPIN -> RETURN_CORR", {
         corrFromX, corrToX, corrFromZ, corrToZ

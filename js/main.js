@@ -29,6 +29,9 @@ function setType (itemType) {
         
     case type.BANGLE_EX_BOLD:
       return type.BANGLE_EX_BOLD;
+
+    case type.BANGLE_LIGHT_24:
+      return type.BANGLE_LIGHT_24;
       
     default:
       return type.BANGLE_LIGHT;
@@ -141,9 +144,18 @@ const type = {
   BANGLE_EX_BOLD: "bangle_ex_bold",
   BANGLE_BOLD: "bangle_bold",
   BANGLE_LIGHT: "bangle_light",
+  BANGLE_LIGHT_24: "bangle_light_24",
 }
 
 const modelType = setType(itemType);
+const isBangleLight24 = modelType === type.BANGLE_LIGHT_24;
+
+if (isBangleLight24) {
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.5;
+}
+
 
 // model: モデル
 const loader = new GLTFLoader();
@@ -336,8 +348,8 @@ function pickEndAngleWithDirection(start, end, preferredSign) {
   return end;
 }
 
-const PREFERRED_UNWIND_SIGN_Z = Math.sign(RotPreset?.NORMAL?.z ?? turnSpeed.BASE) || 1;
-const PREFERRED_UNWIND_SIGN_X = modelType == type.RING ? 1 : -1; // Xは見た目に影響しづらいので固定でOK（必要なら調整）
+const PREFERRED_UNWIND_SIGN_Z = 1;
+const PREFERRED_UNWIND_SIGN_X = modelType == type.RING ? -1 : 1; // Xは見た目に影響しづらいので固定でOK（必要なら調整）
 
 // 「0度」と同じ姿勢の別表現（2πなど）を使って、戻しの回転方向を揃える
 const CORRECTION_END_X = pickEndAngleWithDirection(MODEL_INITIAL_ROT_X, 0, PREFERRED_UNWIND_SIGN_X);
@@ -437,7 +449,7 @@ function animate() {
           spinFromY = spinGroup.rotation.y;
           spinFromZ = spinGroup.rotation.z;
 
-          const signY = 1; // RotPreset.NORMAL.y が正なら固定でもOK
+          const signY = 1;
           const signZ = 1;
 
           spinToY = pickEquivalentAngleSameDirection(spinFromY, 0, signY);
@@ -775,8 +787,11 @@ function handleReturnSpin(delta) {
     corrFromX = correctionGroup.rotation.x;
     corrFromZ = correctionGroup.rotation.z;
 
-    corrToX = pickEquivalentAngleSameDirection(corrFromX, MODEL_INITIAL_ROT_X, -1);
-    corrToZ = pickEquivalentAngleSameDirection(corrFromZ, MODEL_INITIAL_ROT_Z, 1);
+    const signX = modelType == type.RING ? 1 : -1;
+    const signZ = 1;
+
+    corrToX = pickEquivalentAngleSameDirection(corrFromX, MODEL_INITIAL_ROT_X, signX);
+    corrToZ = pickEquivalentAngleSameDirection(corrFromZ, MODEL_INITIAL_ROT_Z, signZ);
     
     console.log("[phase] RETURN_SPIN -> RETURN_CORR", {
       corrFromX, corrToX, corrFromZ, corrToZ
